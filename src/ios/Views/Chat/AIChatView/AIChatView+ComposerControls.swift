@@ -22,24 +22,28 @@ import UniformTypeIdentifiers
 import WebKit
 
 extension AIChatView {
-    /// Attachment "+" button.
-    /// iOS 16's Menu has a vertical alignment bug inside HStack that causes it
-    /// to sit higher than sibling buttons when the keyboard is up.
-    /// Use confirmationDialog on iOS 16, Menu on iOS 17+.
+    /// Opens the composer action menu; the photo row uses a dialog to keep
+    /// both the camera and the photo-library actions available.
     @ViewBuilder
     private var attachmentMenuButton: some View {
-        // [T-ios-voiceover-labels] Labelled on the shared `icon` so both the
-        // iOS 17 Menu branch and the iOS 16 confirmationDialog branch below
-        // announce the same thing; otherwise VoiceOver reads "plus".
+        // [T-ios-voiceover-labels] The glyph has an explicit spoken label.
         let icon = Image(systemName: "plus")
             .font(.system(size: 19, weight: .medium))
             .foregroundStyle(.primary)
             .frame(width: 44, height: 44)
-            .accessibilityLabel(Text("Add attachment", comment: "VoiceOver label for the attachment button"))
+            .accessibilityLabel(Text("More options"))
 
         Button {
             vm.dismissSlashMenu()
             vm.dismissMentionMenu()
+            if !showEEDCComposerMenu {
+                let window = UIApplication.shared.connectedScenes
+                    .compactMap { $0 as? UIWindowScene }
+                    .flatMap(\.windows).first(where: \.isKeyWindow)
+                let height = window?.keyboardLayoutGuide.layoutFrame.height ?? 0
+                eedcMenuUsesKeyboard = inputFocused && height > (window?.safeAreaInsets.bottom ?? 0) + 100
+                eedcKeyboardHeight = height
+            }
             withAnimation(eedcReduceMotion ? nil : .spring(response: 0.44, dampingFraction: 0.72)) {
                 showEEDCComposerMenu.toggle()
             }
@@ -446,7 +450,14 @@ extension AIChatView {
             // [T-ipad-composer-resize] Raise the text view's growth cap in
             // lockstep with the dragged frame, otherwise text would scroll at
             // 120pt inside a taller box and the extra space would be dead.
-            maxHeightOverride: composerTextHeight
+            maxHeightOverride: composerTextHeight,
+            eedcKeyboardMenu: EEDCKeyboardMenuConfiguration(
+                isPresented: showEEDCComposerMenu && eedcMenuUsesKeyboard,
+                height: eedcKeyboardHeight,
+                channel: composerActions,
+                thinkingEnabled: !vm.availableThinkingLevels.isEmpty && (vm.currentThinkingLevel.isEnabled || vm.currentModelSupportsReasoning),
+                thinkingProgress: eedcThinkingProgress
+            )
         )
         return AnyView(composerBody(field: field, topPadding: topPadding))
     }

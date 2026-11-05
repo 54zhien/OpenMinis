@@ -73,6 +73,18 @@ extension AIChatView {
             case .caret(let caret): handleCaretChange(caret); return true
             case .submitAfterVoice: submitAfterVoice(); return true
             case .releaseFocus: inputFocused = false; return true
+            case .eedcMenu(let item):
+                showEEDCComposerMenu = false
+                if item != .dismiss { inputFocused = false }
+                switch item {
+                case .dismiss: break
+                case .model: showModelPicker = true
+                case .thinking: showThinkingLevelSheet = true
+                case .plugins: showSessionMCPs = true
+                case .photos: showAttachmentMenu = true
+                case .files: showDocumentPicker = true
+                }
+                return true
             }
         }
     }

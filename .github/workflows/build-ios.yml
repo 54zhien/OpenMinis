@@ -51,13 +51,13 @@ jobs:
         run: |
           mkdir -p Payload
           cp -R "$RUNNER_TEMP/derived/Build/Products/Release-iphoneos/Minis.app" Payload/
-          zip -qry OpenMinis-unsigned.ipa Payload
-          unzip -t OpenMinis-unsigned.ipa | tail -1
-          shasum -a 256 OpenMinis-unsigned.ipa
+          zip -qry eEDC-unsigned.ipa Payload
+          unzip -t eEDC-unsigned.ipa | tail -1
+          shasum -a 256 eEDC-unsigned.ipa
       - uses: actions/upload-artifact@v4
         with:
-          name: OpenMinis-unsigned-ipa
-          path: OpenMinis-unsigned.ipa
+          name: eEDC-unsigned-ipa
+          path: eEDC-unsigned.ipa
           if-no-files-found: error
       - name: Upload build log on failure
         if: failure()

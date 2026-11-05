@@ -34,6 +34,9 @@ jobs:
           swift EEDCKeyboardHandoffTests.swift
           swift EEDCSidebarGeometryTests.swift
           swift CrashBatch0924Tests.swift
+          sed -n '/^\/\/ BEGIN EEDCStorageMode$/,/^\/\/ END EEDCStorageMode$/p' ../../Agent/Chat/AIChatViewModel+RequestBudget.swift > "$RUNNER_TEMP/EEDCStorageMode.swift"
+          swiftc -parse-as-library "$RUNNER_TEMP/EEDCStorageMode.swift" EEDCStorageModeTests.swift -o "$RUNNER_TEMP/eedc-storage-tests"
+          "$RUNNER_TEMP/eedc-storage-tests"
       - name: Build native dependencies
         run: |
           ./deps/build_lame.sh

@@ -5,6 +5,36 @@ import UIKit
 
 private let logger = AppLogger(category: "AIChatVM")
 
+// BEGIN EEDCStorageMode
+enum EEDCStorageMode {
+    case shared, local
+
+    static func choose(previousLocal: Bool, groupAvailable: Bool) -> Self {
+        previousLocal || !groupAvailable ? .local : .shared
+    }
+}
+// END EEDCStorageMode
+
+/// Select once per process and retain a local selection across launches. This
+/// avoids silently switching away from files created while the entitlement was
+/// unavailable if the app is later re-signed with a working App Group.
+enum EEDCStorage {
+    private static let localModeKey = "eedc.localStorageMode"
+    private static let selection: (mode: EEDCStorageMode, container: URL) = {
+        let fm = FileManager.default
+        let group = fm.containerURL(forSecurityApplicationGroupIdentifier: SharedContainerStore.appGroupID)
+        let mode = EEDCStorageMode.choose(previousLocal: UserDefaults.standard.bool(forKey: localModeKey),
+                                          groupAvailable: group != nil)
+        if mode == .shared, let group { return (mode, group) }
+        UserDefaults.standard.set(true, forKey: localModeKey)
+        let support = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return (.local, support.appendingPathComponent("eEDCLocalContainer", isDirectory: true))
+    }()
+
+    static var isShared: Bool { selection.mode == .shared }
+    static var container: URL { selection.container }
+}
+
 // MARK: - Request-level image budget + Minis paths + tool-output offload
 
 extension AIChatViewModel {
@@ -419,18 +449,14 @@ extension AIChatViewModel {
     /// FileProvider extension. Keep ONLY user-facing subdirs (shared, skills,
     /// memory) here — anything else leaks into "On My iPhone → Minis".
     nonisolated static var minisAppGroupRoot: URL {
-        FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: SharedContainerStore.appGroupID
-        )!.appendingPathComponent("MinisFileProvider", isDirectory: true)
+        EEDCStorage.container.appendingPathComponent("MinisFileProvider", isDirectory: true)
     }
 
     /// App Group subdirectory for private metadata that must NOT be exposed
     /// to iOS Files (mounted-folders.json, FileProvider extension logs, etc).
     /// Sibling of `minisAppGroupRoot` inside the same App Group container.
     nonisolated static var minisConfigRoot: URL {
-        let url = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: SharedContainerStore.appGroupID
-        )!.appendingPathComponent("MinisConfig", isDirectory: true)
+        let url = EEDCStorage.container.appendingPathComponent("MinisConfig", isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }

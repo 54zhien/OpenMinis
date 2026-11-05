@@ -111,6 +111,7 @@ struct MinisApp: App {
 
     /// Tracks when the app entered background for duration logging.
     @State private var backgroundEntryDate: Date?
+    @State private var showLocalStorageNotice = false
 
     init() {
         // [T-ios-mac-uncaught-nsexception] FIRST statement in the process's own
@@ -236,6 +237,12 @@ struct MinisApp: App {
                 SpeechPlayerControl()
                 AppLockOverlay()
             }
+                .alert("正在使用应用内存储", isPresented: $showLocalStorageNotice) {
+                    Button("知道了", role: .cancel) { }
+                } message: {
+                    Text("eEDC 曾无法访问 App Group，已改用应用内存储并继续沿用，避免切换签名后看不到数据。文件 App 共享和分享扩展不可用；原共享容器中的数据不会自动迁移。")
+                }
+                .onAppear { if !EEDCStorage.isShared { showLocalStorageNotice = true } }
                 .onReceive(SessionLockStore.shared.$appIsLocked) { locked in
                     guard !locked, let url = pendingURLWhileLocked else { return }
                     pendingURLWhileLocked = nil
@@ -449,7 +456,7 @@ struct MinisApp: App {
                     Self.logFPSyncTracePaths()
                     // Start watching shared/skills/memory subtrees so iSH writes
                     // and FileBrowserView mutations propagate to the Files app.
-                    AppGroupChangeWatcher.shared.start()
+                    if EEDCStorage.isShared { AppGroupChangeWatcher.shared.start() }
                     // Activate security scopes for user-mounted external folders
                     // (e.g. Obsidian vault in iCloud Drive). Held for app lifetime.
                     MountedFoldersManager.shared.activateAll()
@@ -814,6 +821,11 @@ struct MinisApp: App {
 
     private static func registerFileProviderDomain() {
         logAppUpdateMarkerForFPTrace()
+        guard EEDCStorage.isShared else {
+            SoulStore.ensureExists()
+            lifecycleLog.warning("[FileProvider] shared container unavailable; using local app storage")
+            return
+        }
 
         // [T-ios-fp-mac-bootcrash] Circuit breaker, NOT a blanket disable.
         //
@@ -1178,7 +1190,7 @@ struct MinisApp: App {
     private static func migrateSharedDirToAppGroup() {
         let fm = FileManager.default
         let library = fm.urls(for: .libraryDirectory, in: .userDomainMask).first!
-        let container = fm.containerURL(forSecurityApplicationGroupIdentifier: "group.com.imzhien.eEDC")!
+        let container = EEDCStorage.container
 
         let migrations: [(source: URL, dest: URL, label: String)] = [
             // Legacy Library/MinisChat/shared → new shared

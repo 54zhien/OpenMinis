@@ -5,7 +5,7 @@ let iosRoot = URL(fileURLWithPath: #filePath)
 let path = iosRoot.appendingPathComponent("Views/Chat/AIChatView/AIChatView+InputPopups.swift")
 let source = try String(contentsOf: path, encoding: .utf8)
 guard let start = source.range(of: "enum EEDCKeyboardMenuPhase {"),
-      let end = source.range(of: "\n\nprivate enum EEDCMenuLevel", range: start.lowerBound..<source.endIndex) else {
+      let end = source.range(of: "\n\nenum EEDCMenuLevel", range: start.lowerBound..<source.endIndex) else {
     fatalError("Keyboard handoff state is missing")
 }
 let state = String(source[start.lowerBound..<end.lowerBound])

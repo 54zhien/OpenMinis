@@ -5,6 +5,7 @@ import UIKit
 struct EEDCThinkingDetail: View {
     let level: ThinkingLevel
     let levels: [ThinkingLevel]
+    let modelName: String
     let actions: EEDCComposerMenuActionChannel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var position = 0.0
@@ -16,7 +17,9 @@ struct EEDCThinkingDetail: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Image(systemName: "tachometer")
+                EEDCMenuSymbol(level: .thinking,
+                               thinkingProgress: level.isEnabled && !levels.isEmpty ? Double(selectedIndex + 1) / Double(levels.count) : nil)
+                    .frame(width: 25, height: 25)
                     .frame(width: 44, height: 44)
                     .background(Color(uiColor: .secondarySystemFill), in: Circle())
                 Text("Thinking").font(.headline)
@@ -51,6 +54,8 @@ struct EEDCThinkingDetail: View {
                         }
                     Text(level.displayName).font(.system(size: compact ? 22 : 28, weight: .semibold))
                         .frame(maxWidth: .infinity)
+                    Text(modelName).font(.system(size: compact ? 14 : 18)).foregroundStyle(.secondary)
+                        .lineLimit(1).minimumScaleFactor(0.65)
                     Button { actions.send(.setThinking(.off)) } label: {
                         Text("Off").font(.system(size: compact ? 17 : 20))
                             .foregroundStyle(level == .off ? Color.white : Color.primary)

@@ -176,6 +176,7 @@ extension AIChatView {
             }.frame(height: eedcKeyboardMenuPhase == .closed ? 320 : max(180, eedcKeyboardReservation - 40))
         } else if eedcThinkingDetail {
             EEDCThinkingDetail(level: vm.currentThinkingLevel, levels: vm.availableThinkingLevels,
+                               modelName: SessionModelDisplay(store: .shared, draftGroupId: initialGroupId).displayName(for: vm.sessionId),
                                actions: eedcMenuActions)
                 .frame(height: eedcKeyboardMenuPhase == .closed ? 320 : max(180, eedcKeyboardReservation - 40))
         } else {
@@ -780,7 +781,7 @@ enum EEDCKeyboardMenuPhase {
     }
 }
 
-private enum EEDCMenuLevel { case actions, models, thinking, plugins, images, files }
+enum EEDCMenuLevel { case actions, models, thinking, plugins, images, files }
 
 private struct EEDCComposerMenuGlass: ViewModifier {
     let cornerRadius: CGFloat
@@ -793,7 +794,7 @@ private struct EEDCComposerMenuGlass: ViewModifier {
         }
     }
 }
-private struct EEDCMenuSymbol: View {
+struct EEDCMenuSymbol: View {
     let level: EEDCMenuLevel
     var thinkingProgress: Double?
 

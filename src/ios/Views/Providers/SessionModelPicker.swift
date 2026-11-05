@@ -96,7 +96,7 @@ struct SessionModelPicker: View {
         let entries = store.modelEntries.filter { !$0.isHidden && store.instance(for: $0.providerInstanceId)?.isEnabled == true }
         return VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Image(systemName: "atom").frame(width: 44, height: 44)
+                EEDCMenuSymbol(level: .models).frame(width: 25, height: 25).frame(width: 44, height: 44)
                     .background(Color(uiColor: .secondarySystemFill), in: Circle())
                 Text("Model").font(.headline)
                 Spacer()

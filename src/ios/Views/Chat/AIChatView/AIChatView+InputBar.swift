@@ -69,10 +69,10 @@ extension AIChatView {
             case .toggle: toggleEEDCComposerMenu()
             case .dismiss: dismissEEDCComposerMenu()
             case .restoreKeyboard: restoreKeyboardFromEEDCMenu()
-            case .model: withAnimation { eedcModelDetail = true }
-            case .modelBack: withAnimation { eedcModelDetail = false }
-            case .thinking: withAnimation { eedcThinkingDetail = true }
-            case .thinkingBack: withAnimation { eedcThinkingDetail = false }
+            case .model: withAnimation(eedcReduceMotion ? nil : .spring(response: 0.48, dampingFraction: 0.86)) { eedcModelDetail = true }
+            case .modelBack: withAnimation(eedcReduceMotion ? nil : .easeInOut(duration: 0.32)) { eedcModelDetail = false }
+            case .thinking: withAnimation(eedcReduceMotion ? nil : .spring(response: 0.48, dampingFraction: 0.86)) { eedcThinkingDetail = true }
+            case .thinkingBack: withAnimation(eedcReduceMotion ? nil : .easeInOut(duration: 0.32)) { eedcThinkingDetail = false }
             case .setThinking(let level): vm.setThinkingLevel(level)
             case .plugins: dismissEEDCComposerMenu(); showSessionMCPs = true
             case .photos: dismissEEDCComposerMenu(); showAttachmentMenu = true

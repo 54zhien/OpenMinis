@@ -1643,6 +1643,7 @@ struct AIChatView: View {
         .overlay {
             if showEEDCComposerMenu && (eedcModelDetail || eedcThinkingDetail) {
                 eedcDetailOverlay
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .ignoresSafeArea(

@@ -27,7 +27,10 @@ jobs:
           cp src/ios/Configs/ProviderCustomization.xcconfig.example src/ios/Configs/ProviderCustomization.xcconfig
       - name: Check composer context behavior
         working-directory: src/ios/MinisTests/Standalone
-        run: swift ContextUsageHintTests.swift
+        run: |
+          swift ContextUsageHintTests.swift
+          swift ComposerShrinkAbsorptionTests.swift
+          swift SidebarRowLookupHangTests.swift
       - name: Build native dependencies
         run: |
           ./deps/build_lame.sh

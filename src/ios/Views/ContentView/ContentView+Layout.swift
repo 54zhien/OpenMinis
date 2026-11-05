@@ -34,6 +34,7 @@ private struct EEDCRailGlass: ViewModifier {
 private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>: View {
     @Binding var sidebar: EEDCSidebar
     @State private var drag: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var eedcReduceMotion
     let content: Content
     let history: History
     let actions: (EdgeInsets) -> Actions
@@ -80,7 +81,7 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
                         if sidebar != .closed {
                             Color.clear.contentShape(Rectangle())
                                 .onTapGesture {
-                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { sidebar = .closed }
+                                    withAnimation(eedcReduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86)) { sidebar = .closed }
                                 }
                         }
                     }
@@ -117,7 +118,7 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
                 guard drag != 0 else { return }
                 let base: CGFloat = sidebar == .history ? historyWidth : (sidebar == .actions ? -actionWidth : 0)
                 let projected = base + value.predictedEndTranslation.width
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                withAnimation(eedcReduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86)) {
                     if projected > historyWidth * 0.45 { sidebar = .history }
                     else if projected < -actionWidth * 0.45 { sidebar = .actions }
                     else { sidebar = .closed }
@@ -141,7 +142,7 @@ extension ContentView {
                 commitNavigationPath(NavigationPath([id]), target: id)
                 currentStackSessionId = id
             }
-            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .closed }
+            withAnimation(eedcReduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .closed }
         }
     }
     private func eedcActions(topInset: CGFloat, bottomInset: CGFloat) -> some View {
@@ -149,11 +150,11 @@ extension ContentView {
             VStack(spacing: 0) {
                 eedcAction("新会话", symbol: "message") { handleNewChatRequest() }
                 eedcAction("搜索", symbol: "magnifyingglass") {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .history }
+                    withAnimation(eedcReduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .history }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { focusSearch() }
                 }
                 Button {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .closed }
+                    withAnimation(eedcReduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .closed }
                     showTerminal = true
                 } label: {
                     Image("TerminalCircle").renderingMode(.template).resizable().scaledToFit()
@@ -173,7 +174,7 @@ extension ContentView {
     private func eedcAction(_ label: String, symbol: String, action: @escaping () -> Void) -> some View {
         Button {
             if label != "搜索" {
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .closed }
+                withAnimation(eedcReduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .closed }
             }
             action()
         } label: {

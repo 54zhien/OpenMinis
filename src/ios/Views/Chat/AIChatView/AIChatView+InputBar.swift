@@ -169,7 +169,7 @@ extension AIChatView {
                     .padding(.horizontal, 12)
                     .padding(.bottom, inputFocused || voiceInputActive ? 10 : 0)
                 }
-                .animation(.spring(response: 0.32, dampingFraction: 0.88), value: inputFocused)
+                .animation(eedcReduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.88), value: inputFocused)
             })
             .contentShape(RoundedRectangle(cornerRadius: 20))
             .onTapGesture { inputFocused = true }
@@ -212,6 +212,7 @@ extension AIChatView {
             .overlay {
                 ComposerContextGlow(tier: vm.contextUsage?.tier ?? .normal, compact: !inputFocused && !voiceInputActive && vm.attachments.isEmpty && vm.loadingVideoCount == 0 && vm.editingMessageIndex == nil)
             }
+            .animation(eedcReduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.88), value: inputFocused)
             .frame(maxWidth: maxContentWidth)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)

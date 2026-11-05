@@ -424,6 +424,7 @@ struct AIChatView: View {
     /// everything in `topBanners` together — what the list must start below.
     @State var topBannersHeight: CGFloat = 0
     @Environment(\.horizontalSizeClass) var hSizeClass
+    @Environment(\.accessibilityReduceMotion) var eedcReduceMotion
 
     /// [T-ios-de-voice-toolbar] Measured width of the composer's bottom row,
     /// used to decide whether the read-aloud toggle can afford its text label.

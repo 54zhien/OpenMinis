@@ -17,3 +17,6 @@ jobs:
             src/ios/Views/Chat/AIChatView/Composer/ComposerThinkingArcGeometry.swift \
             src/ios/Views/Chat/AIChatView/Composer/ComposerThinkingTrack.swift \
             src/ios/Views/Chat/AIChatView/Composer/EEDCThinkingDetail.swift
+      - name: Check thinking rail geometry
+        working-directory: src/ios/MinisTests/Standalone
+        run: swift EEDCThinkingGeometryTests.swift

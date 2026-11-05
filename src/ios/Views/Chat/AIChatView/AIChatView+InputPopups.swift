@@ -58,7 +58,7 @@ extension AIChatView {
     @ViewBuilder
     var inputPopupOverlay: some View {
         ZStack {
-            if showEEDCComposerMenu && !eedcMenuUsesKeyboard {
+            if showEEDCComposerMenu {
                 eedcComposerMenu
             } else if vm.showSlashMenu && !vm.filteredSlashCommands.isEmpty {
                 popupOverlayContainer(onDismiss: { vm.dismissSlashMenu() }) {
@@ -80,9 +80,6 @@ extension AIChatView {
         }
         .onChange(of: isChatSearchActive) { active in
             if active && showEEDCComposerMenu { closeEEDCComposerMenu() }
-        }
-        .onChange(of: inputFocused) { focused in
-            if !focused && eedcMenuUsesKeyboard && showEEDCComposerMenu { closeEEDCComposerMenu() }
         }
     }
 
@@ -146,7 +143,7 @@ extension AIChatView {
         .disabled(!enabled)
     }
 
-    var eedcThinkingProgress: Double? {
+    private var eedcThinkingProgress: Double? {
         guard vm.currentThinkingLevel.isEnabled,
               let index = vm.availableThinkingLevels.firstIndex(of: vm.currentThinkingLevel),
               !vm.availableThinkingLevels.isEmpty else { return nil }
@@ -678,63 +675,7 @@ extension AIChatView {
     }
 }
 
-enum EEDCMenuLevel { case actions, models, thinking, plugins, images, files }
-
-struct EEDCKeyboardMenuConfiguration {
-    let isPresented: Bool
-    let height: CGFloat
-    let channel: ComposerActionChannel
-    let thinkingEnabled: Bool
-    let thinkingProgress: Double?
-}
-
-struct EEDCKeyboardMenuView: View {
-    let channel: ComposerActionChannel
-    let thinkingEnabled: Bool
-    let thinkingProgress: Double?
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Capsule().fill(Color(uiColor: .tertiaryLabel)).frame(width: 44, height: 5)
-                .padding(.top, 8).padding(.bottom, 6)
-            ViewThatFits(in: .vertical) {
-                rows
-                ScrollView { rows }
-            }
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(.primary)
-        .modifier(EEDCComposerMenuGlass())
-        .padding(.horizontal, 6)
-        .padding(.bottom, 6)
-        .accessibilityAction(.escape) { channel.send(.eedcMenu(.dismiss)) }
-    }
-
-    private var rows: some View {
-        VStack(spacing: 0) {
-            row("Model", level: .models, action: .model)
-            row("Thinking", level: .thinking, action: .thinking, enabled: thinkingEnabled)
-            row("MCP", level: .plugins, action: .plugins)
-            row("Photos", level: .images, action: .photos)
-            row("Files", level: .files, action: .files)
-        }
-    }
-
-    private func row(_ title: LocalizedStringKey, level: EEDCMenuLevel,
-                     action: EEDCComposerMenuAction, enabled: Bool = true) -> some View {
-        Button { channel.send(.eedcMenu(action)) } label: {
-            HStack(spacing: 12) {
-                EEDCMenuSymbol(level: level, thinkingProgress: thinkingProgress)
-                    .frame(width: 25, height: 25).frame(width: 44, height: 44)
-                    .background(Color(uiColor: .secondarySystemFill), in: Circle())
-                Text(title)
-                Spacer()
-                Image(systemName: "chevron.right").font(.footnote.weight(.semibold))
-            }
-            .padding(.horizontal, 24).frame(minHeight: 52).contentShape(Rectangle())
-        }.disabled(!enabled)
-    }
-}
+private enum EEDCMenuLevel { case actions, models, thinking, plugins, images, files }
 
 private struct EEDCComposerMenuGlass: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
@@ -746,7 +687,7 @@ private struct EEDCComposerMenuGlass: ViewModifier {
         }
     }
 }
-struct EEDCMenuSymbol: View {
+private struct EEDCMenuSymbol: View {
     let level: EEDCMenuLevel
     var thinkingProgress: Double?
 

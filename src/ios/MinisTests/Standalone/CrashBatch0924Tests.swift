@@ -66,7 +66,7 @@ func slice(_ text: String, from start: String, to end: String) -> String {
 // MARK: - [1] no AIChatView capture in stored child-view closures
 
 print("\n▶️  1. composer / tool-bar closures capture no AIChatView copy")
-let field = slice(chat, from: "let field = PastableTextView(", to: "thinkingProgress: eedcThinkingProgress\n            )\n        )")
+let field = slice(chat, from: "let field = PastableTextView(", to: "maxHeightOverride: composerTextHeight\n        )")
 check("PastableTextView call site located", !field.isEmpty)
 for method in ["handleReturnKey", "handleArrowUp", "handleArrowDown", "handleTabKey", "handleCaretChange"] {
     check("no instance-method reference `\(method)` passed as a stored closure",

@@ -343,8 +343,6 @@ struct AIChatView: View {
     @State private var terminalInitCommand: String?
     @State var showAttachmentMenu = false
     @State var showEEDCComposerMenu = false
-    @State var eedcMenuUsesKeyboard = false
-    @State var eedcKeyboardHeight: CGFloat = 0
     @State private var isDropTargeted = false
     @State var showCamera = false
     @State var showPhotoPicker = false

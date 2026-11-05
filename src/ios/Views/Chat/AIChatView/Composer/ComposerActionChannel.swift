@@ -21,8 +21,6 @@ import UIKit
 import UniformTypeIdentifiers
 import WebKit
 
-enum EEDCComposerMenuAction { case dismiss, model, thinking, plugins, photos, files }
-
 /// [T-send-menu-stale-primary-action] Mutable holder for the send Menu's tap
 /// action; see `ChatSendButton.primaryActionBox`.
 @MainActor
@@ -43,10 +41,7 @@ final class SendPrimaryActionBox {
 /// stored closures capture only this one reference.
 @MainActor
 final class ComposerActionChannel {
-    enum Action {
-        case returnKey, arrowUp, arrowDown, tab, caret(Int), submitAfterVoice, releaseFocus
-        case eedcMenu(EEDCComposerMenuAction)
-    }
+    enum Action { case returnKey, arrowUp, arrowDown, tab, caret(Int), submitAfterVoice, releaseFocus }
     var handler: ((Action) -> Bool)?
     /// Returns the handler's "consumed" answer (false when not wired yet, so
     /// an early arrow/tab key keeps its default text-view behaviour).

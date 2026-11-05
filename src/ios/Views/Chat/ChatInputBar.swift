@@ -1691,9 +1691,6 @@ struct PastableTextView: UIViewRepresentable {
     /// scroll internally while the extra space rendered as dead padding. The
     /// growth cap has to move with the frame.
     var maxHeightOverride: CGFloat?
-    /// When the software keyboard is visible, replace its input view with the
-    /// composer menu while keeping this text view as the first responder.
-    var eedcKeyboardMenu: EEDCKeyboardMenuConfiguration? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -1846,7 +1843,6 @@ struct PastableTextView: UIViewRepresentable {
         // the placeholder. The @Binding writes kept working, which is why
         // the freeze went unnoticed. Standard UIViewRepresentable practice.
         context.coordinator.parent = self
-        context.coordinator.updateEEDCInputView(tv, configuration: eedcKeyboardMenu)
         // [T-ipad-composer-resize] Track the growth cap as the user drags. The
         // invalidate is required: `maxHeight` feeds `intrinsicContentSize` and
         // `isScrollEnabled`, neither of which UIKit re-derives on its own, so
@@ -2162,62 +2158,8 @@ struct PastableTextView: UIViewRepresentable {
         return (false, nil)
     }
 
-    class Coordinator: NSObject, UITextViewDelegate, UIGestureRecognizerDelegate {
+    class Coordinator: NSObject, UITextViewDelegate {
         var parent: PastableTextView
-        private var eedcMenuHost: UIHostingController<EEDCKeyboardMenuView>?
-        private var eedcMenuView: UIInputView?
-        private var eedcEditorTap: UITapGestureRecognizer?
-
-        @objc private func eedcEditorTapped() {
-            parent.eedcKeyboardMenu?.channel.send(.eedcMenu(.dismiss))
-        }
-
-        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
-                               shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-            gestureRecognizer === eedcEditorTap
-        }
-
-        func updateEEDCInputView(_ tv: PastableUITextView, configuration: EEDCKeyboardMenuConfiguration?) {
-            if let configuration, configuration.isPresented, tv.isFirstResponder {
-                let root = EEDCKeyboardMenuView(channel: configuration.channel,
-                                                thinkingEnabled: configuration.thinkingEnabled,
-                                                thinkingProgress: configuration.thinkingProgress)
-                if let host = eedcMenuHost {
-                    host.rootView = root
-                    return
-                }
-                let input = UIInputView(frame: CGRect(x: 0, y: 0, width: 0, height: max(216, configuration.height)),
-                                        inputViewStyle: .keyboard)
-                input.allowsSelfSizing = true
-                input.heightAnchor.constraint(equalToConstant: max(216, configuration.height)).isActive = true
-                let host = UIHostingController(rootView: root)
-                host.view.backgroundColor = .clear
-                host.view.translatesAutoresizingMaskIntoConstraints = false
-                input.addSubview(host.view)
-                NSLayoutConstraint.activate([
-                    host.view.leadingAnchor.constraint(equalTo: input.leadingAnchor),
-                    host.view.trailingAnchor.constraint(equalTo: input.trailingAnchor),
-                    host.view.topAnchor.constraint(equalTo: input.topAnchor),
-                    host.view.bottomAnchor.constraint(equalTo: input.bottomAnchor)
-                ])
-                eedcMenuHost = host
-                eedcMenuView = input
-                let tap = UITapGestureRecognizer(target: self, action: #selector(eedcEditorTapped))
-                tap.cancelsTouchesInView = false
-                tap.delegate = self
-                tv.addGestureRecognizer(tap)
-                eedcEditorTap = tap
-                tv.inputView = input
-                tv.reloadInputViews()
-            } else if eedcMenuView != nil {
-                tv.inputView = nil
-                if let tap = eedcEditorTap { tv.removeGestureRecognizer(tap) }
-                eedcEditorTap = nil
-                eedcMenuView = nil
-                eedcMenuHost = nil
-                if tv.isFirstResponder && parent.isFocused { tv.reloadInputViews() }
-            }
-        }
         /// Guard flag to prevent focus feedback loop between UIKit delegate → SwiftUI → updateUIView
         var isSyncingFocus = false
         /// [T-pop-keyboard-flash-home] Last `isFocused` value the focus sync

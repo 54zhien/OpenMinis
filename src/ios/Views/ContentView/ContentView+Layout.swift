@@ -10,6 +10,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 private let shareLog = AppLogger(category: "Share")
 private let draftLog = AppLogger(category: "DraftSession")
@@ -84,7 +85,9 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
                         }
                     }
                     .scaleEffect(1 - 0.15 * historyProgress)
-                    .offset(x: offset)
+                    // Scaling is around the center; compensate its left inset
+                    // so the card edge remains aligned with the revealed rail.
+                    .offset(x: offset - geometry.size.width * 0.075 * historyProgress)
                     .simultaneousGesture(sidebarGesture(width: geometry.size.width, historyWidth: historyWidth, actionWidth: actionWidth))
             }
             .clipped()
@@ -98,6 +101,11 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
                 let horizontal = abs(value.translation.width) > abs(value.translation.height)
                 let validStart = sidebar != .closed || value.startLocation.x < 32 || value.startLocation.x > width - 32
                 guard horizontal && validStart else { return }
+                let opening = sidebar == .closed && ((value.startLocation.x < 32 && value.translation.width > 0)
+                    || (value.startLocation.x > width - 32 && value.translation.width < 0))
+                if opening && drag == 0 {
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                }
                 if sidebar == .closed {
                     if value.startLocation.x < 32 { drag = max(0, value.translation.width) }
                     else { drag = min(0, value.translation.width) }
@@ -145,7 +153,7 @@ extension ContentView {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { focusSearch() }
                 }
                 Button {
-                    eedcSidebar = .closed
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .closed }
                     showTerminal = true
                 } label: {
                     Image("TerminalCircle").renderingMode(.template).resizable().scaledToFit()
@@ -164,7 +172,9 @@ extension ContentView {
 
     private func eedcAction(_ label: String, symbol: String, action: @escaping () -> Void) -> some View {
         Button {
-            if label != "搜索" { eedcSidebar = .closed }
+            if label != "搜索" {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .closed }
+            }
             action()
         } label: {
             Image(systemName: symbol).font(.system(size: 25)).frame(width: 56, height: 56)
@@ -210,10 +220,12 @@ extension ContentView {
                         if parts.count == 3 {
                             AIChatView(sessionId: String(parts[2]), remoteDeviceId: String(parts[1]))
                                 .id(id)
+                                .navigationBarBackButtonHidden(true)
                         }
                     } else {
                         AIChatView(sessionId: Self.isNewSessionId(id) ? nil : id, draftId: Self.isNewSessionId(id) ? id : nil, initialGroupId: Self.extractGroupId(from: id))
                             .id(id)
+                            .navigationBarBackButtonHidden(true)
                             .onAppear {
                                 if currentStackSessionId != id {
                                     currentStackSessionId = id

@@ -1,7 +1,7 @@
 name: Build iOS IPA
 on:
   push:
-    branches: [build/ios-macos26]
+    branches: [build/ios-macos26, feature/eedc-ui]
   workflow_dispatch:
 permissions:
   contents: read

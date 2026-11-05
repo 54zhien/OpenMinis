@@ -71,9 +71,9 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
                 content
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .background(Color(uiColor: .systemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 36 * max(historyProgress, min(1, abs(offset) / actionWidth)), style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 36 * max(historyProgress, min(1, abs(offset) / actionWidth)), style: .continuous)
+                        RoundedRectangle(cornerRadius: 36, style: .continuous)
                             .strokeBorder(Color.primary.opacity(offset == 0 ? 0 : 0.16), lineWidth: 0.5)
                             .allowsHitTesting(false)
                     }

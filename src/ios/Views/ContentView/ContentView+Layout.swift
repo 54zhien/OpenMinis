@@ -17,6 +17,10 @@ private let draftLog = AppLogger(category: "DraftSession")
 
 enum EEDCSidebar { case closed, history, actions }
 
+extension Notification.Name {
+    static let eedcSidebarWillOpen = Notification.Name("eedc.sidebar.willOpen")
+}
+
 private struct EEDCRailGlass: ViewModifier {
     let capsule: Bool
 
@@ -105,6 +109,7 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
                 let opening = sidebar == .closed && ((value.startLocation.x < 32 && value.translation.width > 0)
                     || (value.startLocation.x > width - 32 && value.translation.width < 0))
                 if opening && drag == 0 {
+                    NotificationCenter.default.post(name: .eedcSidebarWillOpen, object: nil)
                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                 }
                 if sidebar == .closed {

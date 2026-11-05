@@ -22,6 +22,7 @@ import UniformTypeIdentifiers
 import WebKit
 
 extension AIChatView {
+    var eedcComposerEditing: Bool { inputFocused || eedcKeyboardMenuPhase != .closed }
     /// Single overlay containing whichever input popup is active (slash or
     /// `@`-mention). Kept in one overlay slot to avoid compounding SwiftUI
     /// generic types on the body, which previously caused a runtime
@@ -58,7 +59,7 @@ extension AIChatView {
     @ViewBuilder
     var inputPopupOverlay: some View {
         ZStack {
-            if showEEDCComposerMenu {
+            if showEEDCComposerMenu && eedcKeyboardMenuPhase == .closed {
                 eedcComposerMenu
             } else if vm.showSlashMenu && !vm.filteredSlashCommands.isEmpty {
                 popupOverlayContainer(onDismiss: { vm.dismissSlashMenu() }) {
@@ -76,16 +77,16 @@ extension AIChatView {
         .animation(.spring(response: 0.18, dampingFraction: 0.82), value: vm.showSlashMenu)
         .animation(.spring(response: 0.18, dampingFraction: 0.82), value: vm.showMentionMenu)
         .onChange(of: vm.inputText) { _ in
-            if showEEDCComposerMenu { closeEEDCComposerMenu() }
+            if showEEDCComposerMenu { dismissEEDCComposerMenu() }
         }
         .onChange(of: isChatSearchActive) { active in
-            if active && showEEDCComposerMenu { closeEEDCComposerMenu() }
+            if active && showEEDCComposerMenu { dismissEEDCComposerMenu() }
         }
     }
 
     private var eedcComposerMenu: some View {
         ZStack(alignment: .bottomLeading) {
-            Color.clear.contentShape(Rectangle()).onTapGesture { closeEEDCComposerMenu() }
+            Color.clear.contentShape(Rectangle()).onTapGesture { dismissEEDCComposerMenu() }
             ViewThatFits(in: .vertical) {
                 eedcMenuRows
                 ScrollView { eedcMenuRows }
@@ -98,7 +99,72 @@ extension AIChatView {
             .transition(.scale(scale: 0.18, anchor: .bottomLeading).combined(with: .opacity))
         }
         .accessibilityIdentifier("eedc-composer-menu")
-        .accessibilityAction(.escape) { closeEEDCComposerMenu() }
+        .accessibilityAction(.escape) { dismissEEDCComposerMenu() }
+    }
+
+    var eedcKeyboardMenuPanel: some View {
+        VStack(spacing: 0) {
+            Capsule().fill(Color(uiColor: .tertiaryLabel)).frame(width: 44, height: 5)
+                .padding(.top, 8).padding(.bottom, 6)
+            ViewThatFits(in: .vertical) {
+                eedcMenuRows
+                ScrollView { eedcMenuRows }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .modifier(EEDCComposerMenuGlass())
+        .padding(.horizontal, 6)
+        .padding(.bottom, 6)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .accessibilityIdentifier("eedc-composer-keyboard-menu")
+        .accessibilityAction(.escape) { restoreKeyboardFromEEDCMenu() }
+    }
+
+    func toggleEEDCComposerMenu() {
+        vm.dismissSlashMenu()
+        vm.dismissMentionMenu()
+        if showEEDCComposerMenu {
+            if eedcKeyboardMenuPhase == .closed { dismissEEDCComposerMenu() }
+            else { restoreKeyboardFromEEDCMenu() }
+            return
+        }
+        guard eedcKeyboardMenuPhase == .closed else { return }
+        let window = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows).first(where: \.isKeyWindow)
+        let height = window?.keyboardLayoutGuide.layoutFrame.height ?? 0
+        if inputFocused && !keyboardUndocked && height > (window?.safeAreaInsets.bottom ?? 0) + 100 {
+            eedcKeyboardReservation = max(0, height - (window?.safeAreaInsets.bottom ?? 0))
+            eedcKeyboardMenuPhase = .waitingForHide
+            showEEDCComposerMenu = true
+        } else {
+            withAnimation(eedcReduceMotion ? nil : .spring(response: 0.44, dampingFraction: 0.72)) {
+                showEEDCComposerMenu = true
+            }
+        }
+    }
+
+    func restoreKeyboardFromEEDCMenu() {
+        switch eedcKeyboardMenuPhase {
+        case .closed:
+            dismissEEDCComposerMenu()
+        case .waitingForHide:
+            showEEDCComposerMenu = false
+            if inputFocused {
+                eedcKeyboardMenuPhase = .closed
+                eedcKeyboardReservation = 0
+            } else {
+                eedcKeyboardMenuPhase = .restoreAfterHide
+            }
+        case .shown:
+            withAnimation(eedcReduceMotion ? nil : .spring(response: 0.44, dampingFraction: 0.72)) {
+                showEEDCComposerMenu = false
+                eedcKeyboardMenuPhase = .restoring
+            }
+            inputFocused = true
+        case .restoreAfterHide, .restoring:
+            break
+        }
     }
 
     private var eedcMenuRows: some View {
@@ -114,16 +180,18 @@ extension AIChatView {
         }
     }
 
-    private func closeEEDCComposerMenu() {
+    func dismissEEDCComposerMenu() {
         withAnimation(eedcReduceMotion ? nil : .spring(response: 0.44, dampingFraction: 0.72)) {
             showEEDCComposerMenu = false
+            eedcKeyboardMenuPhase = .closed
+            eedcKeyboardReservation = 0
         }
     }
 
     private func eedcMenuRow(_ title: LocalizedStringKey, level: EEDCMenuLevel,
                              enabled: Bool = true, action: @escaping () -> Void) -> some View {
         Button {
-            closeEEDCComposerMenu()
+            dismissEEDCComposerMenu()
             action()
         } label: {
             HStack(spacing: 12) {
@@ -674,6 +742,8 @@ extension AIChatView {
         }
     }
 }
+
+enum EEDCKeyboardMenuPhase { case closed, waitingForHide, shown, restoreAfterHide, restoring }
 
 private enum EEDCMenuLevel { case actions, models, thinking, plugins, images, files }
 

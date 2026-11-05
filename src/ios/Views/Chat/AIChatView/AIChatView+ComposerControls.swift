@@ -22,27 +22,18 @@ import UniformTypeIdentifiers
 import WebKit
 
 extension AIChatView {
-    /// Attachment "+" button.
-    /// iOS 16's Menu has a vertical alignment bug inside HStack that causes it
-    /// to sit higher than sibling buttons when the keyboard is up.
-    /// Use confirmationDialog on iOS 16, Menu on iOS 17+.
+    /// Opens the composer action menu, preserving photo and camera actions.
     @ViewBuilder
     private var attachmentMenuButton: some View {
-        // [T-ios-voiceover-labels] Labelled on the shared `icon` so both the
-        // iOS 17 Menu branch and the iOS 16 confirmationDialog branch below
-        // announce the same thing; otherwise VoiceOver reads "plus".
+        // [T-ios-voiceover-labels] The glyph has an explicit spoken label.
         let icon = Image(systemName: "plus")
             .font(.system(size: 19, weight: .medium))
             .foregroundStyle(.primary)
             .frame(width: 44, height: 44)
-            .accessibilityLabel(Text("Add attachment", comment: "VoiceOver label for the attachment button"))
+            .accessibilityLabel(Text("More options"))
 
         Button {
-            vm.dismissSlashMenu()
-            vm.dismissMentionMenu()
-            withAnimation(eedcReduceMotion ? nil : .spring(response: 0.44, dampingFraction: 0.72)) {
-                showEEDCComposerMenu.toggle()
-            }
+            toggleEEDCComposerMenu()
         } label: {
             icon
         }
@@ -58,7 +49,7 @@ extension AIChatView {
     var inputBottomRow: AnyView {
         let row = HStack(spacing: 12) {
             attachmentMenuButton
-            if inputFocused || voiceInputActive || vm.editingMessageIndex != nil || !vm.attachments.isEmpty {
+            if eedcComposerEditing || voiceInputActive || vm.editingMessageIndex != nil || !vm.attachments.isEmpty {
                 slashMenuButton
                 if vm.editingMessageIndex != nil { editExitButton }
             }
@@ -70,7 +61,7 @@ extension AIChatView {
                 readAloudToolbarToggle
                 Spacer()
             }
-            if inputFocused || voiceInputActive || vm.editingMessageIndex != nil || !vm.attachments.isEmpty {
+            if eedcComposerEditing || voiceInputActive || vm.editingMessageIndex != nil || !vm.attachments.isEmpty {
                 micButtonContainer
             }
             sendButton
@@ -466,9 +457,9 @@ extension AIChatView {
                 field.fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.horizontal, inputFocused ? 16 : 0)
-        .padding(.top, inputFocused ? topPadding : 0)
-        .padding(.bottom, inputFocused ? 10 : 0)
+        .padding(.horizontal, eedcComposerEditing ? 16 : 0)
+        .padding(.top, eedcComposerEditing ? topPadding : 0)
+        .padding(.bottom, eedcComposerEditing ? 10 : 0)
         .overlay(alignment: .top) {
             if composerResizeEnabled { composerResizeHandle }
         }

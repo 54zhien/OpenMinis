@@ -36,7 +36,12 @@ let layout = source("Views/ContentView/ContentView+Layout.swift")
 guard let start = grouping.range(of: "final class SessionRowLookupMemo {") else {
     print("❌ SessionRowLookupMemo not found"); exit(1)
 }
-let memoSource = String(grouping[start.lowerBound...])
+// Keep pass-window bookkeeping deterministic even on a busy CI runner. The
+// old/new lookup performance comparison below still uses real wall time.
+let memoSource = String(grouping[start.lowerBound...]).replacingOccurrences(
+    of: "static func clock() -> UInt64 { DispatchTime.now().uptimeNanoseconds }",
+    with: "nonisolated(unsafe) private static var testClock: UInt64 = 1_000_000; static func clock() -> UInt64 { testClock += 1_000; return testClock }"
+)
 
 let harness = """
 import Foundation

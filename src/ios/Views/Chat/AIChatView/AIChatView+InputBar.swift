@@ -148,7 +148,7 @@ extension AIChatView {
                     .padding(.top, 8)
                 }
 
-                EEDCComposerLayout(progress: !inputFocused && !voiceInputActive && vm.attachments.isEmpty && vm.loadingVideoCount == 0 && vm.editingMessageIndex == nil ? 1 : 0) {
+                EEDCComposerLayout(progress: !eedcComposerEditing && !voiceInputActive && vm.attachments.isEmpty && vm.loadingVideoCount == 0 && vm.editingMessageIndex == nil ? 1 : 0) {
                     inputFieldOrWaveform
                     inputBottomRow
                     // [T-ios-de-voice-toolbar] Measure the row so the
@@ -167,9 +167,9 @@ extension AIChatView {
                     // width is the row's own usable space and needs no
                     // constant subtracted back out of it.
                     .padding(.horizontal, 12)
-                    .padding(.bottom, inputFocused || voiceInputActive ? 10 : 0)
+                    .padding(.bottom, eedcComposerEditing || voiceInputActive ? 10 : 0)
                 }
-                .animation(eedcReduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.88), value: inputFocused)
+                .animation(eedcReduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.88), value: eedcComposerEditing)
             })
             .contentShape(RoundedRectangle(cornerRadius: 20))
             .onTapGesture { inputFocused = true }
@@ -204,15 +204,15 @@ extension AIChatView {
                     .padding(.trailing, 10)
                 }
             }
-            .modifier(ComposerSurface(compact: !inputFocused && !voiceInputActive && vm.attachments.isEmpty && vm.loadingVideoCount == 0 && vm.editingMessageIndex == nil))
+            .modifier(ComposerSurface(compact: !eedcComposerEditing && !voiceInputActive && vm.attachments.isEmpty && vm.loadingVideoCount == 0 && vm.editingMessageIndex == nil))
             // [T-ios-context-usage-hint] Inner glow along the glass wall.
             // An overlay ABOVE the material (so the Liquid Glass backdrop
             // sampler never sees it) that clips itself to the same shape, so
             // it cannot spill past the outline (see ComposerContextGlow).
             .overlay {
-                ComposerContextGlow(tier: vm.contextUsage?.tier ?? .normal, compact: !inputFocused && !voiceInputActive && vm.attachments.isEmpty && vm.loadingVideoCount == 0 && vm.editingMessageIndex == nil)
+                ComposerContextGlow(tier: vm.contextUsage?.tier ?? .normal, compact: !eedcComposerEditing && !voiceInputActive && vm.attachments.isEmpty && vm.loadingVideoCount == 0 && vm.editingMessageIndex == nil)
             }
-            .animation(eedcReduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.88), value: inputFocused)
+            .animation(eedcReduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.88), value: eedcComposerEditing)
             .frame(maxWidth: maxContentWidth)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)

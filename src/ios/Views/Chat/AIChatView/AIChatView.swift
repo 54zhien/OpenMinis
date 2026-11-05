@@ -229,7 +229,7 @@ struct AIChatView: View {
     /// NOT docked across the bottom of the screen (floating mini keyboard,
     /// split / undocked keyboard). The composer then keeps its own position
     /// instead of rising by the keyboard's height (see `.ignoresSafeArea`).
-    @State private var keyboardUndocked: Bool = false
+    @State var keyboardUndocked: Bool = false
     @State var inputHasSelection: Bool = false
     @State var inputIsScrollable: Bool = false
     /// [T-ios-composer-swipe-send-at-bottom] True when the composer's text is
@@ -343,6 +343,8 @@ struct AIChatView: View {
     @State private var terminalInitCommand: String?
     @State var showAttachmentMenu = false
     @State var showEEDCComposerMenu = false
+    @State var eedcKeyboardMenuPhase: EEDCKeyboardMenuPhase = .closed
+    @State var eedcKeyboardReservation: CGFloat = 0
     @State private var isDropTargeted = false
     @State var showCamera = false
     @State var showPhotoPicker = false
@@ -554,6 +556,12 @@ struct AIChatView: View {
             // y = 0, under the status bar's clock and battery. They now live in
             // `topBanners`, below the bar, with the scheduled-task banner.
             messagesArea
+                .overlay {
+                    if eedcKeyboardMenuPhase == .shown {
+                        Color.clear.contentShape(Rectangle())
+                            .onTapGesture { dismissEEDCComposerMenu() }
+                    }
+                }
                 .overlay(alignment: .bottom) {
                     // Tool preview + input bar stacked at the bottom.
                     // Both overlay on top of the message list for immersive scrolling.
@@ -1575,6 +1583,9 @@ struct AIChatView: View {
             // the wrong fix — its inline search field legitimately needs to rise
             // with the keyboard. Releasing the responder at the source is correct
             // and is a no-op when nothing is focused.
+            showEEDCComposerMenu = false
+            eedcKeyboardMenuPhase = .closed
+            eedcKeyboardReservation = 0
             inputFocused = false
             let keyWindow = UIApplication.shared.connectedScenes
                 .compactMap { $0 as? UIWindowScene }
@@ -1611,10 +1622,63 @@ struct AIChatView: View {
         // somewhere else on screen. One modifier for both conditions — a
         // second, outer `.ignoresSafeArea` could not undo an inner one that
         // respects the keyboard.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if eedcKeyboardMenuPhase != .closed {
+                Color.clear.frame(height: eedcKeyboardReservation).allowsHitTesting(false)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if eedcKeyboardMenuPhase == .shown && showEEDCComposerMenu {
+                eedcKeyboardMenuPanel
+                    .frame(height: eedcKeyboardReservation)
+                    .ignoresSafeArea(.container, edges: .bottom)
+            }
+        }
         .ignoresSafeArea(
             .keyboard,
-            edges: ((voiceInputActive && !voiceVM.isEditingTranscript) || keyboardUndocked) ? .bottom : []
+            edges: ((voiceInputActive && !voiceVM.isEditingTranscript) || keyboardUndocked || eedcKeyboardMenuPhase != .closed) ? .bottom : []
         )
+        .task(id: eedcKeyboardMenuPhase) {
+            if eedcKeyboardMenuPhase == .waitingForHide && !inputFocused {
+                await Task.yield()
+                guard !Task.isCancelled, eedcKeyboardMenuPhase == .waitingForHide else { return }
+                inputFocused = false
+            }
+            if eedcKeyboardMenuPhase == .waitingForHide || eedcKeyboardMenuPhase == .restoreAfterHide || eedcKeyboardMenuPhase == .restoring {
+                try? await Task.sleep(for: .seconds(3))
+                guard !Task.isCancelled, eedcKeyboardMenuPhase != .shown else { return }
+                inputFocused = false
+                dismissEEDCComposerMenu()
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { note in
+            guard (note.userInfo?[UIResponder.keyboardIsLocalUserInfoKey] as? NSNumber)?.boolValue != false else { return }
+            if eedcKeyboardMenuPhase == .waitingForHide {
+                withAnimation(eedcReduceMotion ? nil : .spring(response: 0.44, dampingFraction: 0.72)) {
+                    eedcKeyboardMenuPhase = .shown
+                }
+            } else if eedcKeyboardMenuPhase == .restoreAfterHide {
+                eedcKeyboardMenuPhase = .restoring
+                inputFocused = true
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { note in
+            guard (note.userInfo?[UIResponder.keyboardIsLocalUserInfoKey] as? NSNumber)?.boolValue != false,
+                  eedcKeyboardMenuPhase == .restoring, inputFocused else { return }
+            eedcKeyboardMenuPhase = .closed
+            eedcKeyboardReservation = 0
+        }
+        .onChange(of: inputFocused) { focused in
+            if focused && eedcKeyboardMenuPhase == .shown {
+                withAnimation(eedcReduceMotion ? nil : .spring(response: 0.44, dampingFraction: 0.72)) {
+                    showEEDCComposerMenu = false
+                    eedcKeyboardMenuPhase = .restoring
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .eedcSidebarWillOpen)) { _ in
+            if isChatViewVisible && showEEDCComposerMenu { dismissEEDCComposerMenu() }
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { note in
             guard UIDevice.current.userInterfaceIdiom == .pad,
                   let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
@@ -1635,6 +1699,10 @@ struct AIChatView: View {
         // keyboard, no inset to ignore), and every docked appearance posts a
         // frame change that clears it.
         .onChange(of: scenePhase) { phase in
+            if phase != .active && eedcKeyboardMenuPhase != .closed {
+                inputFocused = false
+                dismissEEDCComposerMenu()
+            }
             if phase == .active {
                 // [T-voice-inputbar-fg-stale-debounce] iOS changes safe area
                 // insets while backgrounded, causing onGeometryChange to fire

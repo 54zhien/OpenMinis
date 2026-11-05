@@ -30,7 +30,9 @@ extension AIChatView {
             .font(.system(size: 19, weight: .medium))
             .foregroundStyle(.primary)
             .frame(width: 44, height: 44)
-            .accessibilityLabel(Text("More options"))
+            .rotationEffect(.degrees(showEEDCComposerMenu && eedcKeyboardMenuPhase != .closed ? 45 : 0))
+            .animation(eedcReduceMotion ? nil : .easeInOut(duration: 0.25), value: showEEDCComposerMenu)
+            .accessibilityLabel(showEEDCComposerMenu ? Text("Close") : Text("More options"))
 
         Button {
             toggleEEDCComposerMenu()

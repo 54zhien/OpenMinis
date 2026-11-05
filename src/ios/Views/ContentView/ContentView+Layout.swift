@@ -17,6 +17,22 @@ private let draftLog = AppLogger(category: "DraftSession")
 
 enum EEDCSidebar { case closed, history, actions }
 
+enum EEDCSidebarGeometry {
+    static let actionWidth: CGFloat = 96
+
+    static func historyWidth(for width: CGFloat) -> CGFloat {
+        max(1, min(width * 0.78, 340))
+    }
+
+    static func scale(for progress: CGFloat) -> CGFloat {
+        1 - 0.15 * progress
+    }
+
+    static func cardOffset(_ offset: CGFloat, width: CGFloat, progress: CGFloat) -> CGFloat {
+        offset - width * (1 - scale(for: progress)) / 2
+    }
+}
+
 private struct EEDCWindowCornerRadiusKey: EnvironmentKey {
     static let defaultValue: CGFloat = 36
 }
@@ -51,6 +67,8 @@ private struct EEDCWindowCornerProbe: UIViewRepresentable {
 
     func makeUIView(context: Context) -> Probe {
         let view = Probe()
+        view.isUserInteractionEnabled = false
+        view.isAccessibilityElement = false
         view.onRadius = { value in
             DispatchQueue.main.async {
                 if abs(radius - value) > 0.5 { radius = value }
@@ -116,8 +134,8 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
 
     var body: some View {
         GeometryReader { geometry in
-            let historyWidth = max(1, min(geometry.size.width * 0.78, 340))
-            let actionWidth: CGFloat = 96
+            let historyWidth = EEDCSidebarGeometry.historyWidth(for: geometry.size.width)
+            let actionWidth = EEDCSidebarGeometry.actionWidth
             let base: CGFloat = sidebar == .history ? historyWidth : (sidebar == .actions ? -actionWidth : 0)
             let offset = min(historyWidth, max(-actionWidth, base + drag))
             let historyProgress = max(0, offset / historyWidth)
@@ -153,10 +171,10 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
                                 }
                         }
                     }
-                    .scaleEffect(1 - 0.15 * historyProgress)
+                    .scaleEffect(EEDCSidebarGeometry.scale(for: historyProgress))
                     // Scaling is around the center; compensate its left inset
                     // so the card edge remains aligned with the revealed rail.
-                    .offset(x: offset - geometry.size.width * 0.075 * historyProgress)
+                    .offset(x: EEDCSidebarGeometry.cardOffset(offset, width: geometry.size.width, progress: historyProgress))
                     .simultaneousGesture(sidebarGesture(width: geometry.size.width, historyWidth: historyWidth, actionWidth: actionWidth))
             }
             .clipped()

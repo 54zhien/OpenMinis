@@ -80,7 +80,7 @@ private struct EEDCWindowCornerProbe: UIViewRepresentable {
                 reference.layoutIfNeeded()
                 let value = reference.effectiveRadius(corner: .topLeft)
                 reference.removeFromSuperview()
-                if value.isFinite && value > 0 { onRadius?(value) }
+                if value.isFinite { onRadius?(max(0, value)) }
             }
         }
     }

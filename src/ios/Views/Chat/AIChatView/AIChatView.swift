@@ -343,6 +343,7 @@ struct AIChatView: View {
     @State private var terminalInitCommand: String?
     @State var showAttachmentMenu = false
     @State var showEEDCComposerMenu = false
+    @State var eedcMenuActions = EEDCComposerMenuActionChannel()
     @State var eedcKeyboardMenuPhase: EEDCKeyboardMenuPhase = .closed
     @State var eedcKeyboardReservation: CGFloat = 0
     @State private var isDropTargeted = false

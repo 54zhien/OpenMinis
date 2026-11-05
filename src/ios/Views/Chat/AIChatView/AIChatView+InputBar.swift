@@ -64,6 +64,20 @@ extension AIChatView {
     /// channel, not in PastableTextView's stored properties, so the child
     /// view never carries a copy of AIChatView.
     func wireComposerActions() {
+        eedcMenuActions.handler = { [self] action in
+            switch action {
+            case .toggle: toggleEEDCComposerMenu()
+            case .dismiss: dismissEEDCComposerMenu()
+            case .restoreKeyboard: restoreKeyboardFromEEDCMenu()
+            case .model: dismissEEDCComposerMenu(); showModelPicker = true
+            case .thinking: dismissEEDCComposerMenu(); showThinkingLevelSheet = true
+            case .plugins: dismissEEDCComposerMenu(); showSessionMCPs = true
+            case .photos: dismissEEDCComposerMenu(); showAttachmentMenu = true
+            case .files: dismissEEDCComposerMenu(); showDocumentPicker = true
+            case .camera: showCamera = true
+            case .photoLibrary: showPhotoPicker = true
+            }
+        }
         composerActions.handler = { [self] action in
             switch action {
             case .returnKey: handleReturnKey(); return true

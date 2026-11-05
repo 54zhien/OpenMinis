@@ -34,14 +34,14 @@ extension AIChatView {
             .animation(eedcReduceMotion ? nil : .easeInOut(duration: 0.25), value: showEEDCComposerMenu)
             .accessibilityLabel(showEEDCComposerMenu ? Text("Close") : Text("More options"))
 
-        Button {
-            toggleEEDCComposerMenu()
+        Button { [eedcMenuActions] in
+            eedcMenuActions.send(.toggle)
         } label: {
             icon
         }
         .confirmationDialog("Add Attachment", isPresented: $showAttachmentMenu) {
-            Button("Take Photo") { showCamera = true }
-            Button("Choose Photos & Videos") { showPhotoPicker = true }
+            Button("Take Photo") { [eedcMenuActions] in eedcMenuActions.send(.camera) }
+            Button("Choose Photos & Videos") { [eedcMenuActions] in eedcMenuActions.send(.photoLibrary) }
         }
     }
 

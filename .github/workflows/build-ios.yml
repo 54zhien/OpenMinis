@@ -32,6 +32,7 @@ jobs:
           swift ComposerShrinkAbsorptionTests.swift
           swift SidebarRowLookupHangTests.swift
           swift EEDCKeyboardHandoffTests.swift
+          swift CrashBatch0924Tests.swift
       - name: Build native dependencies
         run: |
           ./deps/build_lame.sh

@@ -86,7 +86,7 @@ extension AIChatView {
 
     private var eedcComposerMenu: some View {
         ZStack(alignment: .bottomLeading) {
-            Color.clear.contentShape(Rectangle()).onTapGesture { dismissEEDCComposerMenu() }
+            Color.clear.contentShape(Rectangle()).onTapGesture { [eedcMenuActions] in eedcMenuActions.send(.dismiss) }
             ViewThatFits(in: .vertical) {
                 eedcMenuRows
                 ScrollView { eedcMenuRows }
@@ -99,7 +99,7 @@ extension AIChatView {
             .transition(.scale(scale: 0.18, anchor: .bottomLeading).combined(with: .opacity))
         }
         .accessibilityIdentifier("eedc-composer-menu")
-        .accessibilityAction(.escape) { dismissEEDCComposerMenu() }
+        .accessibilityAction(.escape) { [eedcMenuActions] in eedcMenuActions.send(.dismiss) }
     }
 
     var eedcKeyboardMenuPanel: some View {
@@ -117,7 +117,7 @@ extension AIChatView {
         .padding(.bottom, 6)
         .transition(.move(edge: .bottom).combined(with: .opacity))
         .accessibilityIdentifier("eedc-composer-keyboard-menu")
-        .accessibilityAction(.escape) { restoreKeyboardFromEEDCMenu() }
+        .accessibilityAction(.escape) { [eedcMenuActions] in eedcMenuActions.send(.restoreKeyboard) }
     }
 
     func toggleEEDCComposerMenu() {
@@ -169,14 +169,12 @@ extension AIChatView {
 
     private var eedcMenuRows: some View {
         VStack(spacing: 0) {
-            eedcMenuRow("Model", level: .models) { showModelPicker = true }
+            eedcMenuRow("Model", level: .models, action: .model)
             eedcMenuRow("Thinking", level: .thinking,
-                        enabled: !vm.availableThinkingLevels.isEmpty && (vm.currentThinkingLevel.isEnabled || vm.currentModelSupportsReasoning)) {
-                showThinkingLevelSheet = true
-            }
-            eedcMenuRow("MCP", level: .plugins) { showSessionMCPs = true }
-            eedcMenuRow("Photos", level: .images) { showAttachmentMenu = true }
-            eedcMenuRow("Files", level: .files) { showDocumentPicker = true }
+                        enabled: !vm.availableThinkingLevels.isEmpty && (vm.currentThinkingLevel.isEnabled || vm.currentModelSupportsReasoning), action: .thinking)
+            eedcMenuRow("MCP", level: .plugins, action: .plugins)
+            eedcMenuRow("Photos", level: .images, action: .photos)
+            eedcMenuRow("Files", level: .files, action: .files)
         }
     }
 
@@ -189,13 +187,13 @@ extension AIChatView {
     }
 
     private func eedcMenuRow(_ title: LocalizedStringKey, level: EEDCMenuLevel,
-                             enabled: Bool = true, action: @escaping () -> Void) -> some View {
-        Button {
-            dismissEEDCComposerMenu()
-            action()
+                             enabled: Bool = true, action: EEDCComposerMenuActionChannel.Action) -> some View {
+        let progress = eedcThinkingProgress
+        return Button { [eedcMenuActions] in
+            eedcMenuActions.send(action)
         } label: {
             HStack(spacing: 12) {
-                EEDCMenuSymbol(level: level, thinkingProgress: eedcThinkingProgress)
+                EEDCMenuSymbol(level: level, thinkingProgress: progress)
                     .frame(width: 25, height: 25)
                     .frame(width: 44, height: 44)
                     .background(Color(uiColor: .secondarySystemFill), in: Circle())

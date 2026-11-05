@@ -1588,6 +1588,8 @@ struct AIChatView: View {
             // with the keyboard. Releasing the responder at the source is correct
             // and is a no-op when nothing is focused.
             showEEDCComposerMenu = false
+            eedcThinkingDetail = false
+            eedcModelDetail = false
             eedcKeyboardMenuPhase = .closed
             eedcKeyboardReservation = 0
             inputFocused = false
@@ -1676,6 +1678,8 @@ struct AIChatView: View {
             if focused && eedcKeyboardMenuPhase == .shown {
                 withAnimation(eedcReduceMotion ? nil : .spring(response: 0.44, dampingFraction: 0.72)) {
                     showEEDCComposerMenu = false
+                    eedcThinkingDetail = false
+                    eedcModelDetail = false
                     eedcKeyboardMenuPhase = .restoring
                 }
             }

@@ -365,7 +365,7 @@ struct ContentView: View {
     /// Whether the initial session load has completed (prevents showing the list before we decide to auto-navigate).
     @State var didInitialLoad = false
     /// Controls sidebar visibility on iPad (automatic handles iPhone collapse).
-    @State var columnVisibility: NavigationSplitViewVisibility = .automatic
+    @State var columnVisibility: NavigationSplitViewVisibility = .detailOnly
     @State var eedcSidebar: EEDCSidebar = .closed
 
     /// Launch screen preference: 0=Auto, 1=Last Session, 2=New Chat.
@@ -1093,11 +1093,7 @@ struct ContentView: View {
                         var tx = Transaction()
                         tx.disablesAnimations = true
                         withTransaction(tx) { openSession(Self.makeNewSessionId()) }
-                    } else if isWideLayout, let latest = sessions.first {
-                        var tx = Transaction()
-                        tx.disablesAnimations = true
-                        withTransaction(tx) { openSession(latest.id) }
-                    } else if !isWideLayout {
+                    } else {
                         var tx = Transaction()
                         tx.disablesAnimations = true
                         withTransaction(tx) { openSession(sessions.first?.id ?? Self.makeNewSessionId()) }

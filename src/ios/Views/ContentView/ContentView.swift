@@ -568,9 +568,9 @@ struct ContentView: View {
             let wide = isIPad && geo.size.width >= compactThreshold
             Group {
                 if wide {
-                    eedcLayout(content: splitLayout, wide: true)
+                    eedcLayout(content: splitLayout)
                 } else {
-                    eedcLayout(content: stackLayout, wide: false)
+                    eedcLayout(content: stackLayout)
                 }
             }
             .overlay(alignment: .top) {

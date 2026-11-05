@@ -290,7 +290,7 @@ extension ContentView {
     /// [T-nav-row-push-animation] `animated` lets ONE caller - a list row tap,
     /// see `switchToSession` - keep the system push animation. Everything else
     /// still commits inside a disabled-animation transaction, exactly as before.
-    func commitNavigationPath(_ newPath: NavigationPath, animated: Bool = false,
+    private func commitNavigationPath(_ newPath: NavigationPath, animated: Bool = false,
                                       target: String? = nil,
                                       file: String = #fileID, line: Int = #line) {
         let caller = "\((file as NSString).lastPathComponent):\(line)"

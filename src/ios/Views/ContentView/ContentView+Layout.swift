@@ -131,18 +131,10 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
 
 extension ContentView {
     // Keep the existing navigation tree mounted while exposing the two rails.
-    func eedcLayout<Content: View>(content: Content, wide: Bool) -> some View {
+    func eedcLayout<Content: View>(content: Content) -> some View {
         EEDCSidebarContainer(sidebar: $eedcSidebar, content: content,
-                             history: NavigationStack { sessionList(useNavigationLinks: false) }) { insets in
+                             history: NavigationStack { sessionList(useNavigationLinks: true) }) { insets in
             eedcActions(topInset: insets.top, bottomInset: insets.bottom)
-        }
-        .onChange(of: selectedSessionId) { id in
-            guard eedcSidebar == .history, let id else { return }
-            if !wide {
-                commitNavigationPath(NavigationPath([id]), target: id)
-                currentStackSessionId = id
-            }
-            withAnimation(eedcReduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .closed }
         }
     }
     private func eedcActions(topInset: CGFloat, bottomInset: CGFloat) -> some View {

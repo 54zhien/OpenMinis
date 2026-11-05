@@ -85,6 +85,11 @@ extension ContentView {
         menuActions.handler = { [self] action in
             switch action {
             case .open(let sid):
+                if eedcSidebar == .history {
+                    withAnimation(eedcReduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86)) {
+                        eedcSidebar = .closed
+                    }
+                }
                 // [T-nav-row-push-animation] A row tap keeps the push animation
                 // its NavigationLink used to give it (only when the stack is
                 // empty; see shouldAnimateSessionPush).

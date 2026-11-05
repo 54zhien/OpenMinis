@@ -224,7 +224,7 @@ check("select mode is chosen once per section, rows fall back to a placeholder i
 let stackBody = rowsFile.components(separatedBy: "struct SessionStackRow: View {").last?.components(separatedBy: "struct SessionSplitRow").first ?? ""
 let splitBody = rowsFile.components(separatedBy: "struct SessionSplitRow: View {").last ?? ""
 check("iPhone row keeps navigation, drag, regen overlay, folder background and the value-only menu",
-      ["NavigationLink(value: session.id)", ".draggable(session.id)", "if isRegeneratingTitle {",
+      ["menuActions.send(.open(sid))", ".draggable(session.id)", "if isRegeneratingTitle {",
        "FolderMemberRowBackground(isLast: isLastInFolder)", "SessionContextMenu(", ".equatable()",
        ".listRowInsets(EdgeInsets())", ".listRowSeparator(.hidden)", "HomeListPerf.rowBuilt()"].allSatisfy(stackBody.contains))
 check("iPad row keeps selection tag, highlight band, draft menu id, drag, regen overlay",

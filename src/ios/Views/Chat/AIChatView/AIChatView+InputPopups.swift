@@ -59,7 +59,7 @@ extension AIChatView {
     @ViewBuilder
     var inputPopupOverlay: some View {
         ZStack {
-            if showEEDCComposerMenu && eedcKeyboardMenuPhase == .closed {
+            if showEEDCComposerMenu && eedcKeyboardMenuPhase == .closed && !eedcModelDetail && !eedcThinkingDetail {
                 eedcComposerMenu
             } else if vm.showSlashMenu && !vm.filteredSlashCommands.isEmpty {
                 popupOverlayContainer(onDismiss: { vm.dismissSlashMenu() }) {
@@ -88,8 +88,8 @@ extension AIChatView {
         ZStack(alignment: .bottomLeading) {
             Color.clear.contentShape(Rectangle()).onTapGesture { [eedcMenuActions] in eedcMenuActions.send(.dismiss) }
             ViewThatFits(in: .vertical) {
-                eedcMenuContent(rowHeight: 64, cornerRadius: max(0, eedcWindowCornerRadius - 8))
-                ScrollView { eedcMenuContent(rowHeight: 64, cornerRadius: max(0, eedcWindowCornerRadius - 8)) }
+                eedcMenuRows(rowHeight: 64, cornerRadius: max(0, eedcWindowCornerRadius - 8))
+                ScrollView { eedcMenuRows(rowHeight: 64, cornerRadius: max(0, eedcWindowCornerRadius - 8)) }
             }
             .padding(.vertical, 12)
             .frame(maxWidth: 320)
@@ -107,8 +107,8 @@ extension AIChatView {
             Capsule().fill(Color(uiColor: .tertiaryLabel)).frame(width: 44, height: 5)
                 .padding(.top, 8).padding(.bottom, 6)
             ViewThatFits(in: .vertical) {
-                eedcMenuContent(rowHeight: max(52, (eedcKeyboardReservation - 2 * max(34, eedcWindowCornerRadius - 6)) / 4), cornerRadius: max(0, eedcWindowCornerRadius - 6))
-                ScrollView { eedcMenuContent(rowHeight: max(52, (eedcKeyboardReservation - 2 * max(34, eedcWindowCornerRadius - 6)) / 4), cornerRadius: max(0, eedcWindowCornerRadius - 6)) }
+                eedcMenuRows(rowHeight: max(52, (eedcKeyboardReservation - 2 * max(34, eedcWindowCornerRadius - 6)) / 4), cornerRadius: max(0, eedcWindowCornerRadius - 6))
+                ScrollView { eedcMenuRows(rowHeight: max(52, (eedcKeyboardReservation - 2 * max(34, eedcWindowCornerRadius - 6)) / 4), cornerRadius: max(0, eedcWindowCornerRadius - 6)) }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -169,18 +169,43 @@ extension AIChatView {
         }
     }
 
-    @ViewBuilder private func eedcMenuContent(rowHeight: CGFloat, cornerRadius: CGFloat) -> some View {
-        if eedcModelDetail {
-            SessionModelPicker(sessionId: vm.sessionId, inlineActions: eedcMenuActions) { [vm] in
-                await vm.ensureSessionReturningId()
-            }.frame(height: eedcKeyboardMenuPhase == .closed ? 320 : max(180, eedcKeyboardReservation - 40))
-        } else if eedcThinkingDetail {
-            EEDCThinkingDetail(level: vm.currentThinkingLevel, levels: vm.availableThinkingLevels,
-                               modelName: SessionModelDisplay(store: .shared, draftGroupId: initialGroupId).displayName(for: vm.sessionId),
-                               actions: eedcMenuActions)
-                .frame(height: eedcKeyboardMenuPhase == .closed ? 320 : max(180, eedcKeyboardReservation - 40))
-        } else {
-            eedcMenuRows(rowHeight: rowHeight, cornerRadius: cornerRadius)
+    var eedcDetailOverlay: some View {
+        let backAction: EEDCComposerMenuActionChannel.Action = eedcModelDetail ? .modelBack : .thinkingBack
+        return GeometryReader { geometry in
+            let height = min(geometry.size.height - 12,
+                             eedcKeyboardMenuPhase == .closed ? max(240, geometry.size.height * 0.43) : eedcKeyboardReservation)
+            ZStack(alignment: .bottom) {
+                Color.black.opacity(0.08).contentShape(Rectangle())
+                    .onTapGesture { [eedcMenuActions, backAction] in
+                        eedcMenuActions.send(backAction)
+                    }
+                VStack(spacing: 0) {
+                    Capsule().fill(Color(uiColor: .tertiaryLabel)).frame(width: 44, height: 5)
+                        .frame(maxWidth: .infinity).frame(height: 20)
+                        .contentShape(Rectangle())
+                        .gesture(DragGesture(minimumDistance: 20).onEnded { [eedcMenuActions, backAction] value in
+                            if value.translation.height > 35 {
+                                eedcMenuActions.send(backAction)
+                            }
+                        })
+                    if eedcModelDetail {
+                        SessionModelPicker(sessionId: vm.sessionId, inlineActions: eedcMenuActions) { [vm] in
+                            await vm.ensureSessionReturningId()
+                        }
+                    } else {
+                        EEDCThinkingDetail(level: vm.currentThinkingLevel, levels: vm.availableThinkingLevels,
+                                           modelName: SessionModelDisplay(store: .shared, draftGroupId: initialGroupId).displayName(for: vm.sessionId),
+                                           actions: eedcMenuActions)
+                    }
+                }
+                .padding(.bottom, 12)
+                .frame(height: max(0, height - 6))
+                .frame(maxWidth: .infinity)
+                .modifier(EEDCComposerMenuGlass(cornerRadius: max(0, eedcWindowCornerRadius - 6)))
+                .padding(.horizontal, 6).padding(.bottom, 6)
+                .transition(.move(edge: .bottom))
+            }
+            .ignoresSafeArea(.container, edges: .bottom)
         }
     }
 

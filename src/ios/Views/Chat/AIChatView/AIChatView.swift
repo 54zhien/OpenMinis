@@ -1634,10 +1634,15 @@ struct AIChatView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if eedcKeyboardMenuPhase == .shown && showEEDCComposerMenu {
+            if eedcKeyboardMenuPhase == .shown && showEEDCComposerMenu && !eedcModelDetail && !eedcThinkingDetail {
                 eedcKeyboardMenuPanel
                     .frame(height: eedcKeyboardReservation)
                     .ignoresSafeArea(.container, edges: .bottom)
+            }
+        }
+        .overlay {
+            if showEEDCComposerMenu && (eedcModelDetail || eedcThinkingDetail) {
+                eedcDetailOverlay
             }
         }
         .ignoresSafeArea(

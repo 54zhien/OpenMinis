@@ -14,7 +14,121 @@ import SwiftUI
 private let shareLog = AppLogger(category: "Share")
 private let draftLog = AppLogger(category: "DraftSession")
 
+enum EEDCSidebar { case closed, history, actions }
+
 extension ContentView {
+    // Keep the existing navigation tree mounted while exposing the two rails.
+    func eedcLayout<Content: View>(content: Content, wide: Bool) -> some View {
+        GeometryReader { geometry in
+            let historyWidth = min(geometry.size.width * 0.78, 340)
+            let actionWidth: CGFloat = 96
+            let base: CGFloat = eedcSidebar == .history ? historyWidth : (eedcSidebar == .actions ? -actionWidth : 0)
+            let offset = min(historyWidth, max(-actionWidth, base + eedcDrag))
+            let historyProgress = max(0, offset / historyWidth)
+            ZStack {
+                Color(uiColor: .systemBackground).ignoresSafeArea()
+                HStack(spacing: 0) {
+                    NavigationStack { sessionList(useNavigationLinks: false) }
+                        .frame(width: historyWidth)
+                        .opacity(historyProgress > 0 ? 1 : 0)
+                        .allowsHitTesting(eedcSidebar == .history && eedcDrag == 0)
+                    Spacer(minLength: 0)
+                    eedcActions
+                        .frame(width: actionWidth)
+                        .opacity(offset < 0 ? 1 : 0)
+                        .allowsHitTesting(eedcSidebar == .actions && eedcDrag == 0)
+                }
+                content
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .background(Color(uiColor: .systemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 36 * max(historyProgress, min(1, abs(offset) / actionWidth)), style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 36 * max(historyProgress, min(1, abs(offset) / actionWidth)), style: .continuous)
+                            .strokeBorder(Color.primary.opacity(offset == 0 ? 0 : 0.16), lineWidth: 0.5)
+                            .allowsHitTesting(false)
+                    }
+                    .scaleEffect(1 - 0.15 * historyProgress)
+                    .offset(x: offset)
+                    .simultaneousGesture(eedcSidebarGesture(width: geometry.size.width, historyWidth: historyWidth, actionWidth: actionWidth))
+                    .onTapGesture {
+                        if eedcSidebar != .closed {
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .closed }
+                        }
+                    }
+            }
+            .clipped()
+            .onChange(of: selectedSessionId) { id in
+                guard eedcSidebar == .history, let id else { return }
+                if !wide {
+                    commitNavigationPath(NavigationPath([id]), target: id)
+                    currentStackSessionId = id
+                }
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .closed }
+            }
+        }
+    }
+
+    private func eedcSidebarGesture(width: CGFloat, historyWidth: CGFloat, actionWidth: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 10, coordinateSpace: .global)
+            .onChanged { value in
+                let horizontal = abs(value.translation.width) > abs(value.translation.height)
+                let validStart = eedcSidebar != .closed || value.startLocation.x < 32 || value.startLocation.x > width - 32
+                guard horizontal && validStart else { return }
+                if eedcSidebar == .closed {
+                    if value.startLocation.x < 32 { eedcDrag = max(0, value.translation.width) }
+                    else { eedcDrag = min(0, value.translation.width) }
+                } else {
+                    eedcDrag = value.translation.width
+                }
+            }
+            .onEnded { value in
+                guard eedcDrag != 0 else { return }
+                let base: CGFloat = eedcSidebar == .history ? historyWidth : (eedcSidebar == .actions ? -actionWidth : 0)
+                let projected = base + value.predictedEndTranslation.width
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                    if projected > historyWidth * 0.45 { eedcSidebar = .history }
+                    else if projected < -actionWidth * 0.45 { eedcSidebar = .actions }
+                    else { eedcSidebar = .closed }
+                    eedcDrag = 0
+                }
+            }
+    }
+
+    private var eedcActions: some View {
+        VStack {
+            VStack(spacing: 0) {
+                eedcAction("新会话", symbol: "message") { handleNewChatRequest() }
+                eedcAction("搜索", symbol: "magnifyingglass") {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .history }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { focusSearch() }
+                }
+                Button {
+                    eedcSidebar = .closed
+                    showTerminal = true
+                } label: {
+                    Image("TerminalCircle").renderingMode(.template).resizable().scaledToFit()
+                        .frame(width: 25, height: 25).frame(width: 56, height: 56)
+                }.accessibilityLabel("终端")
+            }
+            .glassEffect(.regular.interactive(), in: Capsule())
+            Spacer()
+            eedcAction("设置", symbol: "gearshape") { activeToolSheet = .settings }
+                .glassEffect(.regular.interactive(), in: Circle())
+        }
+        .foregroundStyle(.primary)
+        .padding(.top, 64)
+        .padding(.bottom, 34)
+    }
+
+    private func eedcAction(_ label: String, symbol: String, action: @escaping () -> Void) -> some View {
+        Button {
+            if label != "搜索" { eedcSidebar = .closed }
+            action()
+        } label: {
+            Image(systemName: symbol).font(.system(size: 25)).frame(width: 56, height: 56)
+        }.accessibilityLabel(label)
+    }
+
     // MARK: - Split Layout (iPad / wide window)
 
     var splitLayout: some View {

@@ -33,9 +33,9 @@ extension ContentView {
                         .opacity(historyProgress > 0 ? 1 : 0)
                         .allowsHitTesting(eedcSidebar == .history && eedcDrag == 0)
                     Spacer(minLength: 0)
-                    eedcActions
+                    eedcActions(topInset: geometry.safeAreaInsets.top, bottomInset: geometry.safeAreaInsets.bottom)
                         .frame(width: actionWidth)
-                        .opacity(offset < 0 ? 1 : 0)
+                        .opacity(offset < 0 ? Double(0.25 + 0.75 * min(1, -offset / actionWidth)) : 0)
                         .allowsHitTesting(eedcSidebar == .actions && eedcDrag == 0)
                 }
                 content
@@ -97,7 +97,7 @@ extension ContentView {
             }
     }
 
-    private var eedcActions: some View {
+    private func eedcActions(topInset: CGFloat, bottomInset: CGFloat) -> some View {
         VStack {
             VStack(spacing: 0) {
                 eedcAction("新会话", symbol: "message") { handleNewChatRequest() }
@@ -119,8 +119,8 @@ extension ContentView {
                 .glassEffect(.regular.interactive(), in: Circle())
         }
         .foregroundStyle(.primary)
-        .padding(.top, 64)
-        .padding(.bottom, 34)
+        .padding(.top, topInset + 12)
+        .padding(.bottom, bottomInset + 16)
     }
 
     private func eedcAction(_ label: String, symbol: String, action: @escaping () -> Void) -> some View {

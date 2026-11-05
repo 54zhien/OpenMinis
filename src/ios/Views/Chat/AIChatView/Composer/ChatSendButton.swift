@@ -125,8 +125,9 @@ struct ChatSendButton: View {
                 .accessibilityLabel(Text("Transcribing, then sending…", comment: "Voice input: status while a tapped Send waits for speech recognition to finish"))
             } else if vm.isProcessing && canEnqueue {
                 returnModeMenu(primaryAction: onEnqueue) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 34))
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 21, weight: .medium))
+                        .frame(width: 44, height: 44)
                         .foregroundStyle(ChatColors.sendButton)
                 }
                 .accessibilityLabel(Text("Add to queue", comment: "VoiceOver label for the send button while a reply is generating"))
@@ -159,8 +160,9 @@ struct ChatSendButton: View {
                         vm.stopByUser()
                     }
                 }) {
-                    Image(systemName: "stop.circle.fill")
-                        .font(.system(size: 34))
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 21, weight: .medium))
+                        .frame(width: 44, height: 44)
                         .foregroundStyle(.red)
                 }
                 // Hosted here rather than on the chat root: this button owns the
@@ -205,8 +207,9 @@ struct ChatSendButton: View {
                 // open from the grey button too (switching Return mode before
                 // typing is the common case). The tap is gated instead.
                 returnModeMenu(primaryAction: { if canSend { onSend() } }) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 34))
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 21, weight: .medium))
+                        .frame(width: 44, height: 44)
                         .foregroundStyle(canSend ? ChatColors.sendButton : ChatColors.sendButtonDisabled)
                 }
                 .accessibilityLabel(Text("Send", comment: "VoiceOver label for the send button"))

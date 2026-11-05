@@ -26,7 +26,8 @@ jobs:
           xcrun -sdk iphoneos metal --version || xcodebuild -downloadComponent MetalToolchain
           cp src/ios/Configs/ProviderCustomization.xcconfig.example src/ios/Configs/ProviderCustomization.xcconfig
       - name: Check composer context behavior
-        run: swift src/ios/MinisTests/Standalone/ContextUsageHintTests.swift
+        working-directory: src/ios/MinisTests/Standalone
+        run: swift ContextUsageHintTests.swift
       - name: Build native dependencies
         run: |
           ./deps/build_lame.sh

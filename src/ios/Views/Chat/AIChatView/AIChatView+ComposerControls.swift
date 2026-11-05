@@ -32,13 +32,10 @@ extension AIChatView {
         // iOS 17 Menu branch and the iOS 16 confirmationDialog branch below
         // announce the same thing; otherwise VoiceOver reads "plus".
         let icon = Image(systemName: "plus")
-            .font(.system(size: 18, weight: .medium))
-            .foregroundStyle(ChatColors.secondaryText)
-            .frame(width: 34, height: 34)
+            .font(.system(size: 19, weight: .medium))
+            .foregroundStyle(.primary)
+            .frame(width: 44, height: 44)
             .accessibilityLabel(Text("Add attachment", comment: "VoiceOver label for the attachment button"))
-            .background(ChatColors.inputIconBg)
-            .clipShape(Circle())
-            .overlay(Circle().stroke(ChatColors.inputIconBorder, lineWidth: 0.5))
 
         if #available(iOS 17, *) {
             Menu {

@@ -17,6 +17,17 @@ private let draftLog = AppLogger(category: "DraftSession")
 
 enum EEDCSidebar { case closed, history, actions }
 
+private struct EEDCWindowCornerRadiusKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 36
+}
+
+extension EnvironmentValues {
+    var eedcWindowCornerRadius: CGFloat {
+        get { self[EEDCWindowCornerRadiusKey.self] }
+        set { self[EEDCWindowCornerRadiusKey.self] = newValue }
+    }
+}
+
 extension Notification.Name {
     static let eedcSidebarWillOpen = Notification.Name("eedc.sidebar.willOpen")
 }
@@ -125,6 +136,7 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
                         .allowsHitTesting(sidebar == .actions && drag == 0)
                 }
                 content
+                    .environment(\.eedcWindowCornerRadius, windowCornerRadius)
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .background(Color(uiColor: .systemBackground))
                     .clipShape(RoundedRectangle(cornerRadius: windowCornerRadius, style: .continuous))

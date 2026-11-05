@@ -88,12 +88,12 @@ extension AIChatView {
         ZStack(alignment: .bottomLeading) {
             Color.clear.contentShape(Rectangle()).onTapGesture { [eedcMenuActions] in eedcMenuActions.send(.dismiss) }
             ViewThatFits(in: .vertical) {
-                eedcMenuRows
-                ScrollView { eedcMenuRows }
+                eedcMenuRows(rowHeight: 64)
+                ScrollView { eedcMenuRows(rowHeight: 64) }
             }
             .padding(.vertical, 12)
             .frame(maxWidth: 320)
-            .modifier(EEDCComposerMenuGlass())
+            .modifier(EEDCComposerMenuGlass(cornerRadius: max(0, eedcWindowCornerRadius - 8)))
             .padding(.leading, 16)
             .padding(.bottom, 6)
             .transition(.scale(scale: 0.18, anchor: .bottomLeading).combined(with: .opacity))
@@ -107,12 +107,12 @@ extension AIChatView {
             Capsule().fill(Color(uiColor: .tertiaryLabel)).frame(width: 44, height: 5)
                 .padding(.top, 8).padding(.bottom, 6)
             ViewThatFits(in: .vertical) {
-                eedcMenuRows
-                ScrollView { eedcMenuRows }
+                eedcMenuRows(rowHeight: max(52, (eedcKeyboardReservation - 2 * max(34, eedcWindowCornerRadius)) / 4))
+                ScrollView { eedcMenuRows(rowHeight: max(52, (eedcKeyboardReservation - 2 * max(34, eedcWindowCornerRadius)) / 4)) }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .modifier(EEDCComposerMenuGlass())
+        .modifier(EEDCComposerMenuGlass(cornerRadius: max(0, eedcWindowCornerRadius - 6)))
         .padding(.horizontal, 6)
         .padding(.bottom, 6)
         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -167,14 +167,14 @@ extension AIChatView {
         }
     }
 
-    private var eedcMenuRows: some View {
+    private func eedcMenuRows(rowHeight: CGFloat) -> some View {
         VStack(spacing: 0) {
-            eedcMenuRow("Model", level: .models, action: .model)
+            eedcMenuRow("Model", level: .models, rowHeight: rowHeight, action: .model)
             eedcMenuRow("Thinking", level: .thinking,
-                        enabled: !vm.availableThinkingLevels.isEmpty && (vm.currentThinkingLevel.isEnabled || vm.currentModelSupportsReasoning), action: .thinking)
-            eedcMenuRow("MCP", level: .plugins, action: .plugins)
-            eedcMenuRow("Photos", level: .images, action: .photos)
-            eedcMenuRow("Files", level: .files, action: .files)
+                        enabled: !vm.availableThinkingLevels.isEmpty && (vm.currentThinkingLevel.isEnabled || vm.currentModelSupportsReasoning), rowHeight: rowHeight, action: .thinking)
+            eedcMenuRow("MCP", level: .plugins, rowHeight: rowHeight, action: .plugins)
+            eedcMenuRow("Photos", level: .images, rowHeight: rowHeight, action: .photos)
+            eedcMenuRow("Files", level: .files, rowHeight: rowHeight, action: .files)
         }
     }
 
@@ -187,7 +187,8 @@ extension AIChatView {
     }
 
     private func eedcMenuRow(_ title: LocalizedStringKey, level: EEDCMenuLevel,
-                             enabled: Bool = true, action: EEDCComposerMenuActionChannel.Action) -> some View {
+                             enabled: Bool = true, rowHeight: CGFloat,
+                             action: EEDCComposerMenuActionChannel.Action) -> some View {
         let progress = eedcThinkingProgress
         return Button { [eedcMenuActions] in
             eedcMenuActions.send(action)
@@ -202,7 +203,7 @@ extension AIChatView {
                 Image(systemName: "chevron.right").font(.footnote.weight(.semibold))
             }
             .padding(.horizontal, 18)
-            .frame(minHeight: 64)
+            .frame(minHeight: rowHeight)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -759,8 +760,9 @@ enum EEDCKeyboardMenuPhase {
 private enum EEDCMenuLevel { case actions, models, thinking, plugins, images, files }
 
 private struct EEDCComposerMenuGlass: ViewModifier {
+    let cornerRadius: CGFloat
     @ViewBuilder func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 30, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         if #available(iOS 26.0, *) {
             content.glassEffect(.regular.interactive(), in: shape)
         } else {

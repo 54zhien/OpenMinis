@@ -176,10 +176,10 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
                     // Scaling is around the center; compensate its left inset
                     // so the card edge remains aligned with the revealed rail.
                     .offset(x: EEDCSidebarGeometry.cardOffset(offset, width: geometry.size.width, progress: historyProgress))
-                    .simultaneousGesture(sidebarGesture(width: geometry.size.width, historyWidth: historyWidth, actionWidth: actionWidth))
             }
             .clipped()
             .coordinateSpace(name: "eedc-sidebar-container")
+            .simultaneousGesture(sidebarGesture(width: geometry.size.width, historyWidth: historyWidth, actionWidth: actionWidth))
             .background(EEDCWindowCornerProbe(radius: $windowCornerRadius))
         }
     }

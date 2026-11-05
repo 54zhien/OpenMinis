@@ -88,8 +88,8 @@ extension AIChatView {
         ZStack(alignment: .bottomLeading) {
             Color.clear.contentShape(Rectangle()).onTapGesture { [eedcMenuActions] in eedcMenuActions.send(.dismiss) }
             ViewThatFits(in: .vertical) {
-                eedcMenuRows(rowHeight: 64)
-                ScrollView { eedcMenuRows(rowHeight: 64) }
+                eedcMenuRows(rowHeight: 64, cornerRadius: max(0, eedcWindowCornerRadius - 8))
+                ScrollView { eedcMenuRows(rowHeight: 64, cornerRadius: max(0, eedcWindowCornerRadius - 8)) }
             }
             .padding(.vertical, 12)
             .frame(maxWidth: 320)
@@ -107,8 +107,8 @@ extension AIChatView {
             Capsule().fill(Color(uiColor: .tertiaryLabel)).frame(width: 44, height: 5)
                 .padding(.top, 8).padding(.bottom, 6)
             ViewThatFits(in: .vertical) {
-                eedcMenuRows(rowHeight: max(52, (eedcKeyboardReservation - 2 * max(34, eedcWindowCornerRadius)) / 4))
-                ScrollView { eedcMenuRows(rowHeight: max(52, (eedcKeyboardReservation - 2 * max(34, eedcWindowCornerRadius)) / 4)) }
+                eedcMenuRows(rowHeight: max(52, (eedcKeyboardReservation - 2 * max(34, eedcWindowCornerRadius - 6)) / 4), cornerRadius: max(0, eedcWindowCornerRadius - 6))
+                ScrollView { eedcMenuRows(rowHeight: max(52, (eedcKeyboardReservation - 2 * max(34, eedcWindowCornerRadius - 6)) / 4), cornerRadius: max(0, eedcWindowCornerRadius - 6)) }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -167,15 +167,17 @@ extension AIChatView {
         }
     }
 
-    private func eedcMenuRows(rowHeight: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            eedcMenuRow("Model", level: .models, rowHeight: rowHeight, action: .model)
+    private func eedcMenuRows(rowHeight: CGFloat, cornerRadius: CGFloat) -> some View {
+        let iconCenter = max(cornerRadius, 34)
+        return VStack(spacing: 0) {
+            eedcMenuRow("Model", level: .models, rowHeight: rowHeight, action: .model, iconCenter: iconCenter)
             eedcMenuRow("Thinking", level: .thinking,
-                        enabled: !vm.availableThinkingLevels.isEmpty && (vm.currentThinkingLevel.isEnabled || vm.currentModelSupportsReasoning), rowHeight: rowHeight, action: .thinking)
-            eedcMenuRow("MCP", level: .plugins, rowHeight: rowHeight, action: .plugins)
-            eedcMenuRow("Photos", level: .images, rowHeight: rowHeight, action: .photos)
-            eedcMenuRow("Files", level: .files, rowHeight: rowHeight, action: .files)
+                        enabled: !vm.availableThinkingLevels.isEmpty && (vm.currentThinkingLevel.isEnabled || vm.currentModelSupportsReasoning), rowHeight: rowHeight, action: .thinking, iconCenter: iconCenter)
+            eedcMenuRow("MCP", level: .plugins, rowHeight: rowHeight, action: .plugins, iconCenter: iconCenter)
+            eedcMenuRow("Photos", level: .images, rowHeight: rowHeight, action: .photos, iconCenter: iconCenter)
+            eedcMenuRow("Files", level: .files, rowHeight: rowHeight, action: .files, iconCenter: iconCenter)
         }
+        .padding(.vertical, max(0, iconCenter - rowHeight / 2))
     }
 
     func dismissEEDCComposerMenu() {
@@ -188,7 +190,7 @@ extension AIChatView {
 
     private func eedcMenuRow(_ title: LocalizedStringKey, level: EEDCMenuLevel,
                              enabled: Bool = true, rowHeight: CGFloat,
-                             action: EEDCComposerMenuActionChannel.Action) -> some View {
+                             action: EEDCComposerMenuActionChannel.Action, iconCenter: CGFloat) -> some View {
         let progress = eedcThinkingProgress
         return Button { [eedcMenuActions] in
             eedcMenuActions.send(action)
@@ -198,11 +200,14 @@ extension AIChatView {
                     .frame(width: 25, height: 25)
                     .frame(width: 44, height: 44)
                     .background(Color(uiColor: .secondarySystemFill), in: Circle())
+                    .accessibilityHidden(true)
                 Text(title)
                 Spacer()
-                Image(systemName: "chevron.right").font(.footnote.weight(.semibold))
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).accessibilityHidden(true)
             }
-            .padding(.horizontal, 18)
+            .padding(.leading, iconCenter - 22)
+            .padding(.trailing, 24)
+            .padding(.vertical, 4)
             .frame(minHeight: rowHeight)
             .contentShape(Rectangle())
         }

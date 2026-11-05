@@ -743,7 +743,20 @@ extension AIChatView {
     }
 }
 
-enum EEDCKeyboardMenuPhase { case closed, waitingForHide, shown, restoreAfterHide, restoring }
+enum EEDCKeyboardMenuPhase {
+    case closed, waitingForHide, shown, restoreAfterHide, restoring
+
+    var shouldResignKeyboard: Bool { self == .waitingForHide }
+
+    func afterKeyboardDidHide(isFocused: Bool) -> Self? {
+        guard !isFocused else { return nil }
+        switch self {
+        case .waitingForHide: return .shown
+        case .restoreAfterHide: return .restoring
+        default: return nil
+        }
+    }
+}
 
 private enum EEDCMenuLevel { case actions, models, thinking, plugins, images, files }
 

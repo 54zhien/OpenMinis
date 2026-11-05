@@ -35,16 +35,68 @@ private struct EEDCRailGlass: ViewModifier {
     }
 }
 
+private struct EEDCWindowCornerProbe: UIViewRepresentable {
+    @Binding var radius: CGFloat
+
+    func makeUIView(context: Context) -> Probe {
+        let view = Probe()
+        view.onRadius = { value in
+            DispatchQueue.main.async {
+                if abs(radius - value) > 0.5 { radius = value }
+            }
+        }
+        return view
+    }
+
+    func updateUIView(_ view: Probe, context: Context) { view.resolveRadius() }
+
+    final class Probe: UIView {
+        var onRadius: ((CGFloat) -> Void)?
+        private weak var measuredWindow: UIWindow?
+        private var measuredBounds: CGRect?
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            resolveRadius()
+        }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            resolveRadius()
+        }
+
+        func resolveRadius() {
+            guard let window, measuredWindow !== window || measuredBounds != window.bounds else { return }
+            measuredWindow = window
+            measuredBounds = window.bounds
+            if #available(iOS 26.0, *) {
+                let reference = UIView(frame: window.bounds)
+                reference.backgroundColor = .clear
+                reference.isUserInteractionEnabled = false
+                reference.isAccessibilityElement = false
+                reference.accessibilityElementsHidden = true
+                reference.cornerConfiguration = .uniformCorners(radius: .containerConcentric())
+                window.addSubview(reference)
+                reference.layoutIfNeeded()
+                let value = reference.effectiveRadius(corner: .topLeft)
+                reference.removeFromSuperview()
+                if value.isFinite && value > 0 { onRadius?(value) }
+            }
+        }
+    }
+}
+
 private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>: View {
     @Binding var sidebar: EEDCSidebar
     @State private var drag: CGFloat = 0
+    @State private var windowCornerRadius: CGFloat = 36
     @Environment(\.accessibilityReduceMotion) private var eedcReduceMotion
     let content: Content
     let history: History
-    let actions: (EdgeInsets) -> Actions
+    let actions: (EdgeInsets, CGFloat) -> Actions
 
     init(sidebar: Binding<EEDCSidebar>, content: Content, history: History,
-         @ViewBuilder actions: @escaping (EdgeInsets) -> Actions) {
+         @ViewBuilder actions: @escaping (EdgeInsets, CGFloat) -> Actions) {
         self._sidebar = sidebar
         self.content = content
         self.history = history
@@ -66,7 +118,7 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .opacity(historyProgress > 0 ? 1 : 0)
                         .allowsHitTesting(sidebar == .history && drag == 0)
-                    actions(geometry.safeAreaInsets)
+                    actions(geometry.safeAreaInsets, windowCornerRadius)
                         .frame(width: actionWidth)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .opacity(offset < 0 ? Double(0.25 + 0.75 * min(1, -offset / actionWidth)) : 0)
@@ -75,9 +127,9 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
                 content
                     .frame(width: geometry.size.width, height: geometry.size.height)
                     .background(Color(uiColor: .systemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: windowCornerRadius, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 36, style: .continuous)
+                        RoundedRectangle(cornerRadius: windowCornerRadius, style: .continuous)
                             .strokeBorder(Color.primary.opacity(offset == 0 ? 0 : 0.16), lineWidth: 0.5)
                             .allowsHitTesting(false)
                     }
@@ -97,6 +149,7 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
             }
             .clipped()
             .coordinateSpace(name: "eedc-sidebar-container")
+            .background(EEDCWindowCornerProbe(radius: $windowCornerRadius))
         }
     }
 
@@ -138,12 +191,15 @@ extension ContentView {
     // Keep the existing navigation tree mounted while exposing the two rails.
     func eedcLayout<Content: View>(content: Content) -> some View {
         EEDCSidebarContainer(sidebar: $eedcSidebar, content: content,
-                             history: NavigationStack { sessionList(useNavigationLinks: true) }) { insets in
-            eedcActions(topInset: insets.top, bottomInset: insets.bottom)
+                             history: NavigationStack { sessionList(useNavigationLinks: true) }) { insets, radius in
+            eedcActions(topInset: insets.top, bottomInset: insets.bottom, windowRadius: radius)
         }
     }
-    private func eedcActions(topInset: CGFloat, bottomInset: CGFloat) -> some View {
-        VStack {
+    private func eedcActions(topInset: CGFloat, bottomInset: CGFloat, windowRadius: CGFloat) -> some View {
+        let alignsWithCorner = windowRadius >= 36
+        let bottom = alignsWithCorner ? windowRadius - 28 : bottomInset + 16
+        let settingsShift: CGFloat = alignsWithCorner ? -(windowRadius - 28 - 20) : 0
+        return VStack {
             VStack(spacing: 0) {
                 eedcAction("新会话", symbol: "message") { handleNewChatRequest() }
                 eedcAction("搜索", symbol: "magnifyingglass") {
@@ -162,10 +218,11 @@ extension ContentView {
             Spacer()
             eedcAction("设置", symbol: "gearshape") { activeToolSheet = .settings }
                 .modifier(EEDCRailGlass(capsule: false))
+                .offset(x: settingsShift)
         }
         .foregroundStyle(.primary)
-        .padding(.top, topInset + 12)
-        .padding(.bottom, bottomInset + 16)
+        .padding(.top, max(windowRadius - 28, topInset + 12))
+        .padding(.bottom, bottom)
     }
 
     private func eedcAction(_ label: String, symbol: String, action: @escaping () -> Void) -> some View {

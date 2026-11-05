@@ -1639,7 +1639,7 @@ struct AIChatView: View {
             edges: ((voiceInputActive && !voiceVM.isEditingTranscript) || keyboardUndocked || eedcKeyboardMenuPhase != .closed) ? .bottom : []
         )
         .task(id: eedcKeyboardMenuPhase) {
-            if eedcKeyboardMenuPhase == .waitingForHide && !inputFocused {
+            if eedcKeyboardMenuPhase.shouldResignKeyboard {
                 await Task.yield()
                 guard !Task.isCancelled, eedcKeyboardMenuPhase == .waitingForHide else { return }
                 inputFocused = false
@@ -1653,11 +1653,11 @@ struct AIChatView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { note in
             guard (note.userInfo?[UIResponder.keyboardIsLocalUserInfoKey] as? NSNumber)?.boolValue != false else { return }
-            if eedcKeyboardMenuPhase == .waitingForHide {
+            if eedcKeyboardMenuPhase.afterKeyboardDidHide(isFocused: inputFocused) == .shown {
                 withAnimation(eedcReduceMotion ? nil : .spring(response: 0.44, dampingFraction: 0.72)) {
                     eedcKeyboardMenuPhase = .shown
                 }
-            } else if eedcKeyboardMenuPhase == .restoreAfterHide {
+            } else if eedcKeyboardMenuPhase.afterKeyboardDidHide(isFocused: inputFocused) == .restoring {
                 eedcKeyboardMenuPhase = .restoring
                 inputFocused = true
             }

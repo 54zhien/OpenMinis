@@ -342,6 +342,7 @@ struct AIChatView: View {
     @State var showTerminal = false
     @State private var terminalInitCommand: String?
     @State var showAttachmentMenu = false
+    @State var showEEDCComposerMenu = false
     @State private var isDropTargeted = false
     @State var showCamera = false
     @State var showPhotoPicker = false
@@ -1115,6 +1116,17 @@ struct AIChatView: View {
                 }
             }
             .presentationDetents([.large])
+        }
+        .sheet(isPresented: $showThinkingLevelSheet) {
+            ThinkingLevelSheetView(
+                currentLevel: vm.currentThinkingLevel,
+                availableLevels: vm.availableThinkingLevels,
+                onSelect: { newLevel in
+                    vm.setThinkingLevel(newLevel)
+                    showThinkingLevelSheet = false
+                }
+            )
+            .presentationDetents([.medium])
         }
         .sheet(isPresented: $showTokenUsage) {
             TokenUsageSheet(vm: cached.vm)

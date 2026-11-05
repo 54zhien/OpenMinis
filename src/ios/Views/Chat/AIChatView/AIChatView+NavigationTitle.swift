@@ -528,17 +528,6 @@ extension AIChatView {
         .onTapGesture {
             showThinkingLevelSheet = true
         }
-        .sheet(isPresented: $showThinkingLevelSheet) {
-            ThinkingLevelSheetView(
-                currentLevel: level,
-                availableLevels: vm.availableThinkingLevels,
-                onSelect: { newLevel in
-                    vm.setThinkingLevel(newLevel)
-                    showThinkingLevelSheet = false
-                }
-            )
-            .presentationDetents([.medium])
-        }
     }
 
     /// True when the current session's navbar title must render blurred —

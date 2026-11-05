@@ -37,23 +37,18 @@ extension AIChatView {
             .frame(width: 44, height: 44)
             .accessibilityLabel(Text("Add attachment", comment: "VoiceOver label for the attachment button"))
 
-        if #available(iOS 17, *) {
-            Menu {
-                Button { showCamera = true } label: { Label("Take Photo", systemImage: "camera") }
-                Button { showPhotoPicker = true } label: { Label("Choose Photos & Videos", systemImage: "photo.on.rectangle") }
-                Button { showDocumentPicker = true } label: { Label("Add File", systemImage: "doc") }
-            } label: {
-                icon
+        Button {
+            vm.dismissSlashMenu()
+            vm.dismissMentionMenu()
+            withAnimation(eedcReduceMotion ? nil : .spring(response: 0.44, dampingFraction: 0.72)) {
+                showEEDCComposerMenu.toggle()
             }
-        } else {
-            Button { showAttachmentMenu = true } label: {
-                icon
-            }
-            .confirmationDialog("Add Attachment", isPresented: $showAttachmentMenu) {
-                Button { showCamera = true } label: { Label("Take Photo", systemImage: "camera") }
-                Button { showPhotoPicker = true } label: { Label("Choose Photos & Videos", systemImage: "photo.on.rectangle") }
-                Button { showDocumentPicker = true } label: { Label("Add File", systemImage: "doc") }
-            }
+        } label: {
+            icon
+        }
+        .confirmationDialog("Add Attachment", isPresented: $showAttachmentMenu) {
+            Button("Take Photo") { showCamera = true }
+            Button("Choose Photos & Videos") { showPhotoPicker = true }
         }
     }
 

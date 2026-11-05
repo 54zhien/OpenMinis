@@ -58,7 +58,9 @@ extension AIChatView {
     @ViewBuilder
     var inputPopupOverlay: some View {
         ZStack {
-            if vm.showSlashMenu && !vm.filteredSlashCommands.isEmpty {
+            if showEEDCComposerMenu {
+                eedcComposerMenu
+            } else if vm.showSlashMenu && !vm.filteredSlashCommands.isEmpty {
                 popupOverlayContainer(onDismiss: { vm.dismissSlashMenu() }) {
                     slashCommandMenu
                 }
@@ -73,6 +75,78 @@ extension AIChatView {
         // touch of overshoot to read as iOS 26-native.
         .animation(.spring(response: 0.18, dampingFraction: 0.82), value: vm.showSlashMenu)
         .animation(.spring(response: 0.18, dampingFraction: 0.82), value: vm.showMentionMenu)
+        .onChange(of: vm.inputText) { _ in
+            if showEEDCComposerMenu { closeEEDCComposerMenu() }
+        }
+        .onChange(of: isChatSearchActive) { active in
+            if active && showEEDCComposerMenu { closeEEDCComposerMenu() }
+        }
+    }
+
+    private var eedcComposerMenu: some View {
+        ZStack(alignment: .bottomLeading) {
+            Color.clear.contentShape(Rectangle()).onTapGesture { closeEEDCComposerMenu() }
+            ViewThatFits(in: .vertical) {
+                eedcMenuRows
+                ScrollView { eedcMenuRows }
+            }
+            .padding(.vertical, 12)
+            .frame(maxWidth: 320)
+            .modifier(EEDCComposerMenuGlass())
+            .padding(.leading, 16)
+            .padding(.bottom, 6)
+            .transition(.scale(scale: 0.18, anchor: .bottomLeading).combined(with: .opacity))
+        }
+        .accessibilityIdentifier("eedc-composer-menu")
+    }
+
+    private var eedcMenuRows: some View {
+        VStack(spacing: 0) {
+            eedcMenuRow("Model", level: .models) { showModelPicker = true }
+            eedcMenuRow("Thinking", level: .thinking,
+                        enabled: !vm.availableThinkingLevels.isEmpty && (vm.currentThinkingLevel.isEnabled || vm.currentModelSupportsReasoning)) {
+                showThinkingLevelSheet = true
+            }
+            eedcMenuRow("MCP", level: .plugins) { showSessionMCPs = true }
+            eedcMenuRow("Photos", level: .images) { showAttachmentMenu = true }
+            eedcMenuRow("Files", level: .files) { showDocumentPicker = true }
+        }
+    }
+
+    private func closeEEDCComposerMenu() {
+        withAnimation(eedcReduceMotion ? nil : .spring(response: 0.44, dampingFraction: 0.72)) {
+            showEEDCComposerMenu = false
+        }
+    }
+
+    private func eedcMenuRow(_ title: LocalizedStringKey, level: EEDCMenuLevel,
+                             enabled: Bool = true, action: @escaping () -> Void) -> some View {
+        Button {
+            closeEEDCComposerMenu()
+            action()
+        } label: {
+            HStack(spacing: 12) {
+                EEDCMenuSymbol(level: level, thinkingProgress: eedcThinkingProgress)
+                    .frame(width: 25, height: 25)
+                    .frame(width: 44, height: 44)
+                    .background(Color(uiColor: .secondarySystemFill), in: Circle())
+                Text(title)
+                Spacer()
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold))
+            }
+            .padding(.horizontal, 18)
+            .frame(minHeight: 64)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+    }
+
+    private var eedcThinkingProgress: Double? {
+        guard vm.currentThinkingLevel.isEnabled,
+              let index = vm.availableThinkingLevels.firstIndex(of: vm.currentThinkingLevel),
+              !vm.availableThinkingLevels.isEmpty else { return nil }
+        return Double(index + 1) / Double(vm.availableThinkingLevels.count)
     }
 
     /// [T-ipad-inputbar-height-zero] Bounds of the window hosting the chat, in
@@ -597,5 +671,136 @@ extension AIChatView {
                     .fill(isSelected ? Color.white.opacity(0.18) : Color.primary.opacity(0.07))
             )
         }
+    }
+}
+
+private enum EEDCMenuLevel { case actions, models, thinking, plugins, images, files }
+
+private struct EEDCComposerMenuGlass: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 30, style: .continuous)
+        if #available(iOS 26.0, *) {
+            content.glassEffect(.regular.interactive(), in: shape)
+        } else {
+            content.background(.ultraThinMaterial, in: shape)
+        }
+    }
+}
+private struct EEDCMenuSymbol: View {
+    let level: EEDCMenuLevel
+    var thinkingProgress: Double?
+
+    @ViewBuilder var body: some View {
+        switch level {
+        case .thinking:
+            if let thinkingProgress { EEDCThinkingGauge(progress: thinkingProgress) }
+            else { Image(systemName: "tachometer").resizable().scaledToFit().fontWeight(.medium) }
+        case .models, .plugins, .files, .images:
+            Canvas { context, size in
+                let edge = min(size.width, size.height)
+                let transform = CGAffineTransform(scaleX: edge / 28, y: edge / 28)
+                    .concatenating(CGAffineTransform(translationX: (size.width - edge) / 2,
+                                                    y: (size.height - edge) / 2))
+                var path = Path()
+                var detail = Path()
+                switch level {
+                case .models:
+                    let orbit = Path(ellipseIn: CGRect(x: 8.25, y: 1.5, width: 11.5, height: 25))
+                    for angle in [-Double.pi / 4, Double.pi / 4] {
+                        let rotation = CGAffineTransform(translationX: 14, y: 14)
+                            .rotated(by: angle).translatedBy(x: -14, y: -14)
+                        path.addPath(orbit.applying(rotation))
+                    }
+                case .plugins:
+                    // Trace the reference in its final orientation. Separating
+                    // the inner plug avoids an oversized joint in the cord.
+                    path.addArc(center: CGPoint(x: 14, y: 14), radius: 10.5,
+                                startAngle: .degrees(55), endAngle: .degrees(360), clockwise: false)
+                    path.addCurve(to: CGPoint(x: 16.8, y: 17.8),
+                                  control1: CGPoint(x: 24.5, y: 18.5), control2: CGPoint(x: 21.5, y: 20))
+                    detail.move(to: CGPoint(x: 9.6, y: 15))
+                    detail.addLine(to: CGPoint(x: 15, y: 9.6))
+                    detail.addLine(to: CGPoint(x: 17.3, y: 11.9))
+                    detail.addCurve(to: CGPoint(x: 16.8, y: 17.8),
+                                    control1: CGPoint(x: 19.3, y: 13.9), control2: CGPoint(x: 18.5, y: 16.1))
+                    detail.addCurve(to: CGPoint(x: 11.2, y: 17.8),
+                                    control1: CGPoint(x: 15.1, y: 19.5), control2: CGPoint(x: 13.1, y: 19.7))
+                    detail.closeSubpath()
+                    detail.move(to: CGPoint(x: 10.9, y: 13.7)); detail.addLine(to: CGPoint(x: 9.3, y: 12.1))
+                    detail.move(to: CGPoint(x: 13.7, y: 10.9)); detail.addLine(to: CGPoint(x: 12.1, y: 9.3))
+                case .files:
+                    path.move(to: CGPoint(x: 7, y: 9)); path.addLine(to: CGPoint(x: 7, y: 18))
+                    path.addCurve(to: CGPoint(x: 21, y: 18), control1: CGPoint(x: 7, y: 27), control2: CGPoint(x: 21, y: 27))
+                    path.addLine(to: CGPoint(x: 21, y: 8))
+                    path.addCurve(to: CGPoint(x: 11.5, y: 8), control1: CGPoint(x: 21, y: 1), control2: CGPoint(x: 11.5, y: 1))
+                    path.addLine(to: CGPoint(x: 11.5, y: 18))
+                    path.addCurve(to: CGPoint(x: 16.5, y: 18), control1: CGPoint(x: 11.5, y: 22), control2: CGPoint(x: 16.5, y: 22))
+                    path.addLine(to: CGPoint(x: 16.5, y: 9))
+                case .images:
+                    path.addRoundedRect(in: CGRect(x: 3.5, y: 4, width: 21, height: 20), cornerSize: CGSize(width: 4, height: 4))
+                    detail.addEllipse(in: CGRect(x: 16, y: 8, width: 4, height: 4))
+                    detail.move(to: CGPoint(x: 4, y: 19))
+                    detail.addLine(to: CGPoint(x: 9, y: 14))
+                    detail.addQuadCurve(to: CGPoint(x: 12, y: 14), control: CGPoint(x: 10.5, y: 12.5))
+                    detail.addLine(to: CGPoint(x: 21.5, y: 23.5))
+                default: break
+                }
+                let outline: CGFloat = level == .models ? 2.1 : level == .files ? 2.15 : 2.3
+                context.stroke(path.applying(transform), with: .color(.primary),
+                               style: StrokeStyle(lineWidth: edge * outline / 28, lineCap: .round, lineJoin: .round))
+                context.stroke(detail.applying(transform), with: .color(.primary),
+                               style: StrokeStyle(lineWidth: edge * (2.1 / 28), lineCap: .round, lineJoin: .round))
+            }
+        case .actions:
+            Image(systemName: "plus").resizable().scaledToFit()
+        }
+    }
+}
+
+private struct EEDCThinkingGauge: View, Animatable {
+    @Environment(\.colorScheme) private var colorScheme
+    nonisolated var progress: Double
+    nonisolated var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    var body: some View {
+        Canvas { context, size in
+            let fraction = min(1, max(0, progress))
+            // Only the needle may cross the redline; the filled arc stays on its rail.
+            let needleFraction = min(1.12, max(-0.06, progress))
+            let edge = min(size.width, size.height)
+            let radius = edge * 0.40
+            let hub = CGPoint.zero
+            let width = edge * (2.3 / 28)
+            func point(_ fraction: Double, radius: CGFloat) -> CGPoint {
+                let angle = (135 + 270 * fraction) * .pi / 180
+                return CGPoint(x: hub.x + radius * CGFloat(cos(angle)),
+                               y: hub.y + radius * CGFloat(sin(angle)))
+            }
+            func arc(to fraction: Double) -> Path {
+                var path = Path()
+                path.addArc(center: hub, radius: radius, startAngle: .degrees(135),
+                            endAngle: .degrees(135 + 270 * fraction), clockwise: false)
+                return path
+            }
+            let stroke = StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round)
+            // The gauge and needle share the background's center. Centering
+            // the open arc's bounds would push this axis below the circle center.
+            context.translateBy(x: size.width / 2, y: size.height / 2)
+            context.stroke(arc(to: 1), with: .color(colorScheme == .dark ? Color(white: 0.52) : Color(uiColor: .systemGray3)), style: stroke)
+            context.stroke(arc(to: fraction), with: .color(.primary), style: stroke)
+            var needle = Path()
+            let needleHub = hub
+            let tip = point(needleFraction, radius: radius * 0.61)
+            needle.move(to: needleHub)
+            needle.addLine(to: tip)
+            context.stroke(needle, with: .color(.primary), style: stroke)
+            let hubRadius = width * 0.85
+            context.fill(Path(ellipseIn: CGRect(x: needleHub.x - hubRadius, y: needleHub.y - hubRadius,
+                                               width: hubRadius * 2, height: hubRadius * 2)), with: .color(.primary))
+        }
+        .accessibilityHidden(true)
     }
 }

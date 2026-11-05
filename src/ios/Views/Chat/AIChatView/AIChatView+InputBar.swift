@@ -210,7 +210,7 @@ extension AIChatView {
             // sampler never sees it) that clips itself to the same shape, so
             // it cannot spill past the outline (see ComposerContextGlow).
             .overlay {
-                ComposerContextGlow(tier: vm.contextUsage?.tier ?? .normal)
+                ComposerContextGlow(tier: vm.contextUsage?.tier ?? .normal, compact: !inputFocused && !voiceInputActive && vm.attachments.isEmpty && vm.loadingVideoCount == 0 && vm.editingMessageIndex == nil)
             }
             .frame(maxWidth: maxContentWidth)
             .padding(.horizontal, 12)

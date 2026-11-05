@@ -147,6 +147,7 @@ struct ComposerSurface: ViewModifier {
 /// never sees it.
 struct ComposerContextGlow: View {
     let tier: ContextUsage.Tier
+    var compact = false
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var breathing = false
@@ -154,7 +155,7 @@ struct ComposerContextGlow: View {
     /// Must match ComposerSurface's shape exactly: it is the stroke path and
     /// the clip that keeps the glow inside the wall.
     private var shape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: 20, style: .continuous)
+        RoundedRectangle(cornerRadius: compact ? 31 : 20, style: .continuous)
     }
     private var color: Color {
         tier == .critical ? Color(UIColor.systemRed) : Color(UIColor.systemOrange)

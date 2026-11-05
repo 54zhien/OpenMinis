@@ -154,7 +154,7 @@ check("warning highlight is toned-down system orange", bar.contains("case .warni
 check("critical highlight is toned-down system red, no full-strength colour left", bar.contains("case .critical: return UIColor.systemRed.withAlphaComponent(0.60)") && !bar.contains("case .critical: return .systemRed"))
 check("number segments use medium weight, not semibold", bar.contains("let emphasis = UIFont.systemFont(ofSize: font.pointSize, weight: .medium)") && !bar.contains("let emphasis = UIFont.systemFont(ofSize: font.pointSize, weight: .semibold)"))
 
-check("glow is placed after ComposerSurface", view.range(of: ".modifier(ComposerSurface())\n            // [T-ios-context-usage-hint]") != nil)
+check("glow is placed after ComposerSurface", view.range(of: ".modifier(ComposerSurface(compact:").flatMap { surface in view.range(of: "ComposerContextGlow(tier:").map { surface.lowerBound < $0.lowerBound } } ?? false)
 check("glow is an overlay, not a background", view.contains("            .overlay {\n                ComposerContextGlow(tier:"))
 check("glow never hit-tests", view.contains(".allowsHitTesting(false)\n        .animation(.easeInOut(duration: 0.35), value: tier)"))
 check("glow is clipped INSIDE the composer shape", view.contains("                    .clipShape(shape)\n                .blendMode("))

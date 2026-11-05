@@ -1,0 +1,19 @@
+name: Check eEDC UI types
+on:
+  push:
+    branches: [feature/eedc-ui]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  typecheck:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Type-check thinking control against iOS 16 SDK
+        run: |
+          xcrun swiftc -typecheck -target arm64-apple-ios16.0-simulator -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
+            src/ios/MinisTests/Standalone/EEDCThinkingTypecheckStubs.swift \
+            src/ios/Views/Chat/AIChatView/Composer/ComposerThinkingArcGeometry.swift \
+            src/ios/Views/Chat/AIChatView/Composer/ComposerThinkingTrack.swift \
+            src/ios/Views/Chat/AIChatView/Composer/EEDCThinkingDetail.swift

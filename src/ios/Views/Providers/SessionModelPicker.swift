@@ -124,11 +124,14 @@ struct SessionModelPicker: View {
                         }
                         if expandedGroupIds.contains(group.id) {
                             ForEach(group.memberEntryIds, id: \.self) { id in
-                                if let entry = store.entry(for: id), !entry.isHidden,
-                                   store.instance(for: entry.providerInstanceId)?.isEnabled == true {
+                                if let entry = store.entry(for: id) {
+                                    let unavailable = inlineUnavailableReason(entry)
                                     Button { handleEntryTap(entry, inGroup: group) } label: {
-                                        inlineRow(title: entry.model.displayName, subtitle: store.instance(for: entry.providerInstanceId)?.label ?? "", selected: currentGroupId == group.id && currentEntryId == entry.id)
-                                    }.padding(.leading, 12)
+                                        inlineRow(title: entry.model.displayName, subtitle: unavailable ?? store.instance(for: entry.providerInstanceId)?.label ?? "", selected: currentGroupId == group.id && currentEntryId == entry.id)
+                                    }.disabled(unavailable != nil).padding(.leading, 12)
+                                } else {
+                                    inlineRow(title: id, subtitle: AppLocalized("Model not found"), selected: false)
+                                        .opacity(0.5).padding(.leading, 12)
                                 }
                             }
                         }
@@ -144,6 +147,16 @@ struct SessionModelPicker: View {
                 }
             }
         }.buttonStyle(.plain).foregroundStyle(.primary)
+    }
+
+    private func inlineUnavailableReason(_ entry: ModelEntry) -> String? {
+        if !entry.displayTraits.requiresCredential { return nil }
+        if entry.isHidden { return AppLocalized("Hidden") }
+        if entry.isUnavailableFromProvider { return AppLocalized("Not listed by provider") }
+        guard let instance = store.instance(for: entry.providerInstanceId) else { return AppLocalized("Provider not found") }
+        if !instance.isEnabled { return AppLocalized("Provider disabled") }
+        if !instance.hasAnyCredential { return AppLocalized("Not signed in") }
+        return nil
     }
 
     private func inlineRow(title: String, subtitle: String, selected: Bool) -> some View {

@@ -23,7 +23,7 @@ import WebKit
 
 @MainActor
 final class EEDCComposerMenuActionChannel {
-    enum Action { case toggle, dismiss, restoreKeyboard, model, thinking, plugins, photos, files, camera, photoLibrary }
+    enum Action { case toggle, dismiss, restoreKeyboard, model, modelBack, thinking, thinkingBack, setThinking(ThinkingLevel), plugins, photos, files, camera, photoLibrary }
     var handler: ((Action) -> Void)?
     func send(_ action: Action) { handler?(action) }
 }

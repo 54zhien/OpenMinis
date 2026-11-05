@@ -88,8 +88,8 @@ extension AIChatView {
         ZStack(alignment: .bottomLeading) {
             Color.clear.contentShape(Rectangle()).onTapGesture { [eedcMenuActions] in eedcMenuActions.send(.dismiss) }
             ViewThatFits(in: .vertical) {
-                eedcMenuRows(rowHeight: 64, cornerRadius: max(0, eedcWindowCornerRadius - 8))
-                ScrollView { eedcMenuRows(rowHeight: 64, cornerRadius: max(0, eedcWindowCornerRadius - 8)) }
+                eedcMenuContent(rowHeight: 64, cornerRadius: max(0, eedcWindowCornerRadius - 8))
+                ScrollView { eedcMenuContent(rowHeight: 64, cornerRadius: max(0, eedcWindowCornerRadius - 8)) }
             }
             .padding(.vertical, 12)
             .frame(maxWidth: 320)
@@ -107,8 +107,8 @@ extension AIChatView {
             Capsule().fill(Color(uiColor: .tertiaryLabel)).frame(width: 44, height: 5)
                 .padding(.top, 8).padding(.bottom, 6)
             ViewThatFits(in: .vertical) {
-                eedcMenuRows(rowHeight: max(52, (eedcKeyboardReservation - 2 * max(34, eedcWindowCornerRadius - 6)) / 4), cornerRadius: max(0, eedcWindowCornerRadius - 6))
-                ScrollView { eedcMenuRows(rowHeight: max(52, (eedcKeyboardReservation - 2 * max(34, eedcWindowCornerRadius - 6)) / 4), cornerRadius: max(0, eedcWindowCornerRadius - 6)) }
+                eedcMenuContent(rowHeight: max(52, (eedcKeyboardReservation - 2 * max(34, eedcWindowCornerRadius - 6)) / 4), cornerRadius: max(0, eedcWindowCornerRadius - 6))
+                ScrollView { eedcMenuContent(rowHeight: max(52, (eedcKeyboardReservation - 2 * max(34, eedcWindowCornerRadius - 6)) / 4), cornerRadius: max(0, eedcWindowCornerRadius - 6)) }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -145,6 +145,8 @@ extension AIChatView {
     }
 
     func restoreKeyboardFromEEDCMenu() {
+        eedcThinkingDetail = false
+        eedcModelDetail = false
         switch eedcKeyboardMenuPhase {
         case .closed:
             dismissEEDCComposerMenu()
@@ -167,6 +169,20 @@ extension AIChatView {
         }
     }
 
+    @ViewBuilder private func eedcMenuContent(rowHeight: CGFloat, cornerRadius: CGFloat) -> some View {
+        if eedcModelDetail {
+            SessionModelPicker(sessionId: vm.sessionId, inlineActions: eedcMenuActions) { [vm] in
+                await vm.ensureSessionReturningId()
+            }.frame(height: eedcKeyboardMenuPhase == .closed ? 320 : max(180, eedcKeyboardReservation - 40))
+        } else if eedcThinkingDetail {
+            EEDCThinkingDetail(level: vm.currentThinkingLevel, levels: vm.availableThinkingLevels,
+                               actions: eedcMenuActions)
+                .frame(height: eedcKeyboardMenuPhase == .closed ? 320 : max(180, eedcKeyboardReservation - 40))
+        } else {
+            eedcMenuRows(rowHeight: rowHeight, cornerRadius: cornerRadius)
+        }
+    }
+
     private func eedcMenuRows(rowHeight: CGFloat, cornerRadius: CGFloat) -> some View {
         let iconCenter = max(cornerRadius, 34)
         return VStack(spacing: 0) {
@@ -183,6 +199,8 @@ extension AIChatView {
     func dismissEEDCComposerMenu() {
         withAnimation(eedcReduceMotion ? nil : .spring(response: 0.44, dampingFraction: 0.72)) {
             showEEDCComposerMenu = false
+            eedcThinkingDetail = false
+            eedcModelDetail = false
             eedcKeyboardMenuPhase = .closed
             eedcKeyboardReservation = 0
         }

@@ -7,9 +7,11 @@ private let pickerLog = AppLogger(category: "ModelPicker")
 struct SessionModelPicker: View {
     let sessionId: String?
     var ensureSessionId: (() async -> String)?
+    var inlineActions: EEDCComposerMenuActionChannel?
     @ObservedObject private var store = ProviderConfigStore.shared
     @Environment(\.dismiss) private var dismiss
     @State private var pendingNonTextOutput: PendingSelection?
+    @State private var expandedGroupIds: Set<String> = []
 
     private struct PendingSelection: Identifiable {
         let id = UUID()
@@ -19,8 +21,9 @@ struct SessionModelPicker: View {
         let isGroupBind: Bool
     }
 
-    init(sessionId: String?, ensureSessionId: (() async -> String)? = nil) {
+    init(sessionId: String?, inlineActions: EEDCComposerMenuActionChannel? = nil, ensureSessionId: (() async -> String)? = nil) {
         self.sessionId = sessionId
+        self.inlineActions = inlineActions
         self.ensureSessionId = ensureSessionId
     }
 
@@ -45,6 +48,10 @@ struct SessionModelPicker: View {
     }
 
     var body: some View {
+        Group {
+        if let inlineActions {
+            inlinePicker(actions: inlineActions)
+        } else {
         UnifiedModelPicker(config: .init(
             title: "Choose Model",
             mode: .single,
@@ -56,6 +63,8 @@ struct SessionModelPicker: View {
             onSelectGroup: { group in handleGroupTap(group) },
             onSelectInGroup: { entry, group in handleEntryTap(entry, inGroup: group) }
         ))
+        }
+        }
         .alert(
             AppLocalized("This model may not work as an Agent"),
             isPresented: Binding(
@@ -81,6 +90,79 @@ struct SessionModelPicker: View {
         } message: { selection in
             Text(AppLocalized("\(selection.entry.model.displayName) outputs \(selection.modalityLabel) and usually can't drive an Agent task. Pick a text-output model for the session, or add this model to Available Models in Agent Loop so the agent can call it via minis-model-use when it needs to generate \(selection.modalityLabel)."))
         }
+    }
+
+    private func inlinePicker(actions: EEDCComposerMenuActionChannel) -> some View {
+        let entries = store.modelEntries.filter { !$0.isHidden && store.instance(for: $0.providerInstanceId)?.isEnabled == true }
+        return VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Image(systemName: "atom").frame(width: 44, height: 44)
+                    .background(Color(uiColor: .secondarySystemFill), in: Circle())
+                Text("Model").font(.headline)
+                Spacer()
+                Button { actions.send(.modelBack) } label: {
+                    Image(systemName: "xmark").font(.body.weight(.semibold))
+                        .frame(width: 44, height: 44).background(.quaternary, in: Circle())
+                }.accessibilityLabel(Text("Back"))
+            }.padding(.horizontal, 24).padding(.bottom, 8)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 4) {
+                    Text("Choose Model").font(.footnote).foregroundStyle(.secondary)
+                        .padding(.horizontal, 24).padding(.vertical, 8)
+                    ForEach(store.modelGroups) { group in
+                        HStack(spacing: 0) {
+                            Button { handleGroupTap(group) } label: {
+                                inlineRow(title: group.name, subtitle: AppLocalized("Model Groups"), selected: currentGroupId == group.id)
+                            }
+                            Button {
+                                if expandedGroupIds.contains(group.id) { expandedGroupIds.remove(group.id) }
+                                else { expandedGroupIds.insert(group.id) }
+                            } label: {
+                                Image(systemName: expandedGroupIds.contains(group.id) ? "chevron.up" : "chevron.down")
+                                    .frame(width: 44, height: 44)
+                            }.accessibilityLabel(Text("Model Groups"))
+                        }
+                        if expandedGroupIds.contains(group.id) {
+                            ForEach(group.memberEntryIds, id: \.self) { id in
+                                if let entry = store.entry(for: id), !entry.isHidden,
+                                   store.instance(for: entry.providerInstanceId)?.isEnabled == true {
+                                    Button { handleEntryTap(entry, inGroup: group) } label: {
+                                        inlineRow(title: entry.model.displayName, subtitle: store.instance(for: entry.providerInstanceId)?.label ?? "", selected: currentGroupId == group.id && currentEntryId == entry.id)
+                                    }.padding(.leading, 12)
+                                }
+                            }
+                        }
+                    }
+                    ForEach(entries) { entry in
+                        Button { handleEntryTap(entry) } label: {
+                            inlineRow(title: entry.model.displayName, subtitle: store.instance(for: entry.providerInstanceId)?.label ?? "", selected: currentGroupId == nil && currentEntryId == entry.id)
+                        }
+                    }
+                    if entries.isEmpty && store.modelGroups.isEmpty {
+                        Text("No models available").foregroundStyle(.secondary).padding(24)
+                    }
+                }
+            }
+        }.buttonStyle(.plain).foregroundStyle(.primary)
+    }
+
+    private func inlineRow(title: String, subtitle: String, selected: Bool) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "checkmark").font(.body.weight(.semibold)).opacity(selected ? 1 : 0)
+        }
+        .padding(.horizontal, 24).padding(.vertical, 12).frame(minHeight: 52)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(Color(uiColor: .tertiarySystemFill)).opacity(selected ? 1 : 0).padding(.horizontal, 12))
+        .contentShape(Rectangle())
+    }
+
+    private func finishSelection() {
+        if let inlineActions { inlineActions.send(.dismiss) } else { dismiss() }
     }
 
     // MARK: - Non-text output guard
@@ -147,7 +229,7 @@ struct SessionModelPicker: View {
             if let entry = store.entry(for: resolvedEntryId) {
                 await ChatStore.shared.updateSessionModelId(sid, modelId: entry.model.id)
             }
-            dismiss()
+            finishSelection()
         }
     }
 
@@ -180,7 +262,7 @@ struct SessionModelPicker: View {
                 userInfo: info
             )
             await ChatStore.shared.updateSessionModelId(sid, modelId: entry.model.id)
-            dismiss()
+            finishSelection()
         }
     }
 }

@@ -16,6 +16,20 @@ private let draftLog = AppLogger(category: "DraftSession")
 
 enum EEDCSidebar { case closed, history, actions }
 
+private struct EEDCRailGlass: ViewModifier {
+    let capsule: Bool
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            if capsule { content.glassEffect(.regular.interactive(), in: Capsule()) }
+            else { content.glassEffect(.regular.interactive(), in: Circle()) }
+        } else {
+            if capsule { content.background(.ultraThinMaterial, in: Capsule()) }
+            else { content.background(.ultraThinMaterial, in: Circle()) }
+        }
+    }
+}
+
 private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>: View {
     @Binding var sidebar: EEDCSidebar
     @State private var drag: CGFloat = 0
@@ -138,10 +152,10 @@ extension ContentView {
                         .frame(width: 25, height: 25).frame(width: 56, height: 56)
                 }.accessibilityLabel("终端")
             }
-            .glassEffect(.regular.interactive(), in: Capsule())
+            .modifier(EEDCRailGlass(capsule: true))
             Spacer()
             eedcAction("设置", symbol: "gearshape") { activeToolSheet = .settings }
-                .glassEffect(.regular.interactive(), in: Circle())
+                .modifier(EEDCRailGlass(capsule: false))
         }
         .foregroundStyle(.primary)
         .padding(.top, topInset + 12)

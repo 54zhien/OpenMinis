@@ -367,7 +367,6 @@ struct ContentView: View {
     /// Controls sidebar visibility on iPad (automatic handles iPhone collapse).
     @State var columnVisibility: NavigationSplitViewVisibility = .automatic
     @State var eedcSidebar: EEDCSidebar = .closed
-    @State var eedcDrag: CGFloat = 0
 
     /// Launch screen preference: 0=Auto, 1=Last Session, 2=New Chat.
     @AppStorage("launchScreen") private var launchScreen: Int = 0

@@ -16,27 +16,41 @@ private let draftLog = AppLogger(category: "DraftSession")
 
 enum EEDCSidebar { case closed, history, actions }
 
-extension ContentView {
-    // Keep the existing navigation tree mounted while exposing the two rails.
-    func eedcLayout<Content: View>(content: Content, wide: Bool) -> some View {
+private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>: View {
+    @Binding var sidebar: EEDCSidebar
+    @State private var drag: CGFloat = 0
+    let content: Content
+    let history: History
+    let actions: (EdgeInsets) -> Actions
+
+    init(sidebar: Binding<EEDCSidebar>, content: Content, history: History,
+         @ViewBuilder actions: @escaping (EdgeInsets) -> Actions) {
+        self._sidebar = sidebar
+        self.content = content
+        self.history = history
+        self.actions = actions
+    }
+
+    var body: some View {
         GeometryReader { geometry in
-            let historyWidth = min(geometry.size.width * 0.78, 340)
+            let historyWidth = max(1, min(geometry.size.width * 0.78, 340))
             let actionWidth: CGFloat = 96
-            let base: CGFloat = eedcSidebar == .history ? historyWidth : (eedcSidebar == .actions ? -actionWidth : 0)
-            let offset = min(historyWidth, max(-actionWidth, base + eedcDrag))
+            let base: CGFloat = sidebar == .history ? historyWidth : (sidebar == .actions ? -actionWidth : 0)
+            let offset = min(historyWidth, max(-actionWidth, base + drag))
             let historyProgress = max(0, offset / historyWidth)
             ZStack {
                 Color(uiColor: .systemBackground).ignoresSafeArea()
-                HStack(spacing: 0) {
-                    NavigationStack { sessionList(useNavigationLinks: false) }
+                ZStack {
+                    history
                         .frame(width: historyWidth)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .opacity(historyProgress > 0 ? 1 : 0)
-                        .allowsHitTesting(eedcSidebar == .history && eedcDrag == 0)
-                    Spacer(minLength: 0)
-                    eedcActions(topInset: geometry.safeAreaInsets.top, bottomInset: geometry.safeAreaInsets.bottom)
+                        .allowsHitTesting(sidebar == .history && drag == 0)
+                    actions(geometry.safeAreaInsets)
                         .frame(width: actionWidth)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                         .opacity(offset < 0 ? Double(0.25 + 0.75 * min(1, -offset / actionWidth)) : 0)
-                        .allowsHitTesting(eedcSidebar == .actions && eedcDrag == 0)
+                        .allowsHitTesting(sidebar == .actions && drag == 0)
                 }
                 content
                     .frame(width: geometry.size.width, height: geometry.size.height)
@@ -48,55 +62,66 @@ extension ContentView {
                             .allowsHitTesting(false)
                     }
                     .overlay {
-                        if eedcSidebar != .closed {
+                        if sidebar != .closed {
                             Color.clear.contentShape(Rectangle())
                                 .onTapGesture {
-                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .closed }
+                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { sidebar = .closed }
                                 }
                         }
                     }
                     .scaleEffect(1 - 0.15 * historyProgress)
                     .offset(x: offset)
-                    .simultaneousGesture(eedcSidebarGesture(width: geometry.size.width, historyWidth: historyWidth, actionWidth: actionWidth))
+                    .simultaneousGesture(sidebarGesture(width: geometry.size.width, historyWidth: historyWidth, actionWidth: actionWidth))
             }
             .clipped()
-            .onChange(of: selectedSessionId) { id in
-                guard eedcSidebar == .history, let id else { return }
-                if !wide {
-                    commitNavigationPath(NavigationPath([id]), target: id)
-                    currentStackSessionId = id
-                }
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .closed }
-            }
+            .coordinateSpace(name: "eedc-sidebar-container")
         }
     }
 
-    private func eedcSidebarGesture(width: CGFloat, historyWidth: CGFloat, actionWidth: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 10, coordinateSpace: .global)
+    private func sidebarGesture(width: CGFloat, historyWidth: CGFloat, actionWidth: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 10, coordinateSpace: .named("eedc-sidebar-container"))
             .onChanged { value in
                 let horizontal = abs(value.translation.width) > abs(value.translation.height)
-                let validStart = eedcSidebar != .closed || value.startLocation.x < 32 || value.startLocation.x > width - 32
+                let validStart = sidebar != .closed || value.startLocation.x < 32 || value.startLocation.x > width - 32
                 guard horizontal && validStart else { return }
-                if eedcSidebar == .closed {
-                    if value.startLocation.x < 32 { eedcDrag = max(0, value.translation.width) }
-                    else { eedcDrag = min(0, value.translation.width) }
+                if sidebar == .closed {
+                    if value.startLocation.x < 32 { drag = max(0, value.translation.width) }
+                    else { drag = min(0, value.translation.width) }
                 } else {
-                    eedcDrag = value.translation.width
+                    drag = value.translation.width
                 }
             }
             .onEnded { value in
-                guard eedcDrag != 0 else { return }
-                let base: CGFloat = eedcSidebar == .history ? historyWidth : (eedcSidebar == .actions ? -actionWidth : 0)
+                guard drag != 0 else { return }
+                let base: CGFloat = sidebar == .history ? historyWidth : (sidebar == .actions ? -actionWidth : 0)
                 let projected = base + value.predictedEndTranslation.width
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                    if projected > historyWidth * 0.45 { eedcSidebar = .history }
-                    else if projected < -actionWidth * 0.45 { eedcSidebar = .actions }
-                    else { eedcSidebar = .closed }
-                    eedcDrag = 0
+                    if projected > historyWidth * 0.45 { sidebar = .history }
+                    else if projected < -actionWidth * 0.45 { sidebar = .actions }
+                    else { sidebar = .closed }
+                    drag = 0
                 }
             }
     }
 
+}
+
+extension ContentView {
+    // Keep the existing navigation tree mounted while exposing the two rails.
+    func eedcLayout<Content: View>(content: Content, wide: Bool) -> some View {
+        EEDCSidebarContainer(sidebar: $eedcSidebar, content: content,
+                             history: NavigationStack { sessionList(useNavigationLinks: false) }) { insets in
+            eedcActions(topInset: insets.top, bottomInset: insets.bottom)
+        }
+        .onChange(of: selectedSessionId) { id in
+            guard eedcSidebar == .history, let id else { return }
+            if !wide {
+                commitNavigationPath(NavigationPath([id]), target: id)
+                currentStackSessionId = id
+            }
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .closed }
+        }
+    }
     private func eedcActions(topInset: CGFloat, bottomInset: CGFloat) -> some View {
         VStack {
             VStack(spacing: 0) {

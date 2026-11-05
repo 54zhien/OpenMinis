@@ -83,11 +83,11 @@ extension AIChatView {
         return AnyView(row)
     }
 
-    /// [T-ios-de-voice-toolbar] Fixed controls in `inputBottomRow`: two 34pt
-    /// leading buttons, the 34pt mic and the 34pt send button, plus the four
+    /// [T-ios-de-voice-toolbar] Fixed controls in `inputBottomRow`: 44pt plus
+    /// and send controls, 34pt slash and mic controls, plus the four
     /// 12pt HStack gaps between them. Everything left over is what the
     /// read-aloud capsule may use.
-    private static let readAloudRowFixedWidth: CGFloat = 34 * 4 + 12 * 4
+    private static let readAloudRowFixedWidth: CGFloat = 44 * 2 + 34 * 2 + 12 * 4
 
     /// Free width below which the toggle drops its text and becomes icon-only.
     ///

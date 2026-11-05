@@ -1098,6 +1098,10 @@ struct ContentView: View {
                         var tx = Transaction()
                         tx.disablesAnimations = true
                         withTransaction(tx) { openSession(latest.id) }
+                    } else if !isWideLayout {
+                        var tx = Transaction()
+                        tx.disablesAnimations = true
+                        withTransaction(tx) { openSession(sessions.first?.id ?? Self.makeNewSessionId()) }
                     }
                 }
             }

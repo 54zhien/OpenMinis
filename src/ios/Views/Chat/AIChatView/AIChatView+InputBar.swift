@@ -22,6 +22,36 @@ import UIKit
 import UniformTypeIdentifiers
 import WebKit
 
+/// Keeps the same native text view mounted while its controls move between
+/// the compact and keyboard layouts.
+private struct EEDCComposerLayout: Layout {
+    var compact: Bool
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? 320
+        let fieldWidth = max(0, width - (compact ? 112 : 0))
+        let field = subviews[0].sizeThatFits(.init(width: fieldWidth, height: nil))
+        let controls = subviews[1].sizeThatFits(.init(width: width, height: nil))
+        return CGSize(width: width, height: compact ? max(62, field.height, controls.height) : field.height + controls.height + 5)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let fieldWidth = max(0, bounds.width - (compact ? 112 : 0))
+        let fieldSize = subviews[0].sizeThatFits(.init(width: fieldWidth, height: nil))
+        let controlsSize = subviews[1].sizeThatFits(.init(width: bounds.width, height: nil))
+        if compact {
+            subviews[0].place(at: CGPoint(x: bounds.minX + 56, y: bounds.midY - fieldSize.height / 2),
+                              proposal: .init(width: fieldWidth, height: fieldSize.height))
+            subviews[1].place(at: CGPoint(x: bounds.minX, y: bounds.midY - controlsSize.height / 2),
+                              proposal: .init(width: bounds.width, height: controlsSize.height))
+        } else {
+            subviews[0].place(at: bounds.origin, proposal: .init(width: bounds.width, height: fieldSize.height))
+            subviews[1].place(at: CGPoint(x: bounds.minX, y: bounds.minY + fieldSize.height + 5),
+                              proposal: .init(width: bounds.width, height: controlsSize.height))
+        }
+    }
+}
+
 extension AIChatView {
     // MARK: - Input keyboard handlers (extracted to avoid inflating the
     // generic type of `inputBar` past what Swift can demangle at runtime).
@@ -115,9 +145,9 @@ extension AIChatView {
                     .padding(.top, 8)
                 }
 
-                inputFieldOrWaveform
-
-                inputBottomRow
+                EEDCComposerLayout(compact: !inputFocused && !voiceInputActive && vm.attachments.isEmpty && vm.loadingVideoCount == 0 && vm.editingMessageIndex == nil) {
+                    inputFieldOrWaveform
+                    inputBottomRow
                     // [T-ios-de-voice-toolbar] Measure the row so the
                     // read-aloud toggle can decide whether its label fits.
                     // `onGeometryChange`, NOT a GeometryReader background —
@@ -134,7 +164,8 @@ extension AIChatView {
                     // width is the row's own usable space and needs no
                     // constant subtracted back out of it.
                     .padding(.horizontal, 12)
-                    .padding(.bottom, 10)
+                    .padding(.bottom, inputFocused || voiceInputActive ? 10 : 0)
+                }
             })
             .contentShape(RoundedRectangle(cornerRadius: 20))
             .onTapGesture { inputFocused = true }
@@ -169,7 +200,7 @@ extension AIChatView {
                     .padding(.trailing, 10)
                 }
             }
-            .modifier(ComposerSurface())
+            .modifier(ComposerSurface(compact: !inputFocused && !voiceInputActive && vm.attachments.isEmpty && vm.loadingVideoCount == 0 && vm.editingMessageIndex == nil))
             // [T-ios-context-usage-hint] Inner glow along the glass wall.
             // An overlay ABOVE the material (so the Liquid Glass backdrop
             // sampler never sees it) that clips itself to the same shape, so

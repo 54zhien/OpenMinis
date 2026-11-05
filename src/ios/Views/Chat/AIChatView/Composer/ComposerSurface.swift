@@ -99,8 +99,9 @@ struct FloatingCircleButtonSurface: ViewModifier {
 /// fill and BOTH shadows byte-for-byte, including the dark-mode-only top shadow
 /// that lifts the bar off the message list.
 struct ComposerSurface: ViewModifier {
+    var compact = false
     private var shape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: 20, style: .continuous)
+        RoundedRectangle(cornerRadius: compact ? 31 : 20, style: .continuous)
     }
 
     func body(content: Content) -> some View {

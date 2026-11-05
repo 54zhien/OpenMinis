@@ -47,14 +47,17 @@ extension ContentView {
                             .strokeBorder(Color.primary.opacity(offset == 0 ? 0 : 0.16), lineWidth: 0.5)
                             .allowsHitTesting(false)
                     }
+                    .overlay {
+                        if eedcSidebar != .closed {
+                            Color.clear.contentShape(Rectangle())
+                                .onTapGesture {
+                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .closed }
+                                }
+                        }
+                    }
                     .scaleEffect(1 - 0.15 * historyProgress)
                     .offset(x: offset)
                     .simultaneousGesture(eedcSidebarGesture(width: geometry.size.width, historyWidth: historyWidth, actionWidth: actionWidth))
-                    .onTapGesture {
-                        if eedcSidebar != .closed {
-                            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .closed }
-                        }
-                    }
             }
             .clipped()
             .onChange(of: selectedSessionId) { id in

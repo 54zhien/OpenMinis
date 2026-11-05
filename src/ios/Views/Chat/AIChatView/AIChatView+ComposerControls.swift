@@ -66,8 +66,10 @@ extension AIChatView {
     var inputBottomRow: AnyView {
         let row = HStack(spacing: 12) {
             attachmentMenuButton
-            slashMenuButton
-            if vm.editingMessageIndex != nil { editExitButton }
+            if inputFocused || voiceInputActive || vm.editingMessageIndex != nil || !vm.attachments.isEmpty {
+                slashMenuButton
+                if vm.editingMessageIndex != nil { editExitButton }
+            }
             Spacer()
             // Mutually exclusive with editExitButton: while editing a past
             // message the exit capsule owns this row — showing both capsules
@@ -76,7 +78,9 @@ extension AIChatView {
                 readAloudToolbarToggle
                 Spacer()
             }
-            micButtonContainer
+            if inputFocused || voiceInputActive || vm.editingMessageIndex != nil || !vm.attachments.isEmpty {
+                micButtonContainer
+            }
             sendButton
         }
         return AnyView(row)
@@ -470,9 +474,9 @@ extension AIChatView {
                 field.fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, topPadding)
-        .padding(.bottom, 10)
+        .padding(.horizontal, inputFocused ? 16 : 0)
+        .padding(.top, inputFocused ? topPadding : 0)
+        .padding(.bottom, inputFocused ? 10 : 0)
         .overlay(alignment: .top) {
             if composerResizeEnabled { composerResizeHandle }
         }

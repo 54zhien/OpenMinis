@@ -98,6 +98,7 @@ extension AIChatView {
             .transition(.scale(scale: 0.18, anchor: .bottomLeading).combined(with: .opacity))
         }
         .accessibilityIdentifier("eedc-composer-menu")
+        .accessibilityAction(.escape) { closeEEDCComposerMenu() }
     }
 
     private var eedcMenuRows: some View {

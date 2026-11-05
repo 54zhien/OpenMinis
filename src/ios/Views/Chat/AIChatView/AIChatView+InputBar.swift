@@ -25,30 +25,33 @@ import WebKit
 /// Keeps the same native text view mounted while its controls move between
 /// the compact and keyboard layouts.
 private struct EEDCComposerLayout: Layout {
-    var compact: Bool
+    var progress: CGFloat
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let width = proposal.width ?? 320
-        let fieldWidth = max(0, width - (compact ? 112 : 0))
+        let fieldWidth = max(0, width - 112 * progress)
         let field = subviews[0].sizeThatFits(.init(width: fieldWidth, height: nil))
         let controls = subviews[1].sizeThatFits(.init(width: width, height: nil))
-        return CGSize(width: width, height: compact ? max(62, field.height, controls.height) : field.height + controls.height + 5)
+        let expandedHeight = field.height + controls.height + 5
+        let compactHeight = max(62, field.height, controls.height)
+        return CGSize(width: width, height: expandedHeight + (compactHeight - expandedHeight) * progress)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let fieldWidth = max(0, bounds.width - (compact ? 112 : 0))
+        let fieldWidth = max(0, bounds.width - 112 * progress)
         let fieldSize = subviews[0].sizeThatFits(.init(width: fieldWidth, height: nil))
         let controlsSize = subviews[1].sizeThatFits(.init(width: bounds.width, height: nil))
-        if compact {
-            subviews[0].place(at: CGPoint(x: bounds.minX + 56, y: bounds.midY - fieldSize.height / 2),
-                              proposal: .init(width: fieldWidth, height: fieldSize.height))
-            subviews[1].place(at: CGPoint(x: bounds.minX, y: bounds.midY - controlsSize.height / 2),
-                              proposal: .init(width: bounds.width, height: controlsSize.height))
-        } else {
-            subviews[0].place(at: bounds.origin, proposal: .init(width: bounds.width, height: fieldSize.height))
-            subviews[1].place(at: CGPoint(x: bounds.minX, y: bounds.minY + fieldSize.height + 5),
-                              proposal: .init(width: bounds.width, height: controlsSize.height))
-        }
+        let fieldY = bounds.minY + (bounds.height - fieldSize.height) / 2 * progress
+        let expandedControlsY = bounds.minY + fieldSize.height + 5
+        let compactControlsY = bounds.midY - controlsSize.height / 2
+        subviews[0].place(at: CGPoint(x: bounds.minX + 56 * progress, y: fieldY),
+                          proposal: .init(width: fieldWidth, height: fieldSize.height))
+        subviews[1].place(at: CGPoint(x: bounds.minX, y: expandedControlsY + (compactControlsY - expandedControlsY) * progress),
+                          proposal: .init(width: bounds.width, height: controlsSize.height))
     }
 }
 
@@ -145,7 +148,7 @@ extension AIChatView {
                     .padding(.top, 8)
                 }
 
-                EEDCComposerLayout(compact: !inputFocused && !voiceInputActive && vm.attachments.isEmpty && vm.loadingVideoCount == 0 && vm.editingMessageIndex == nil) {
+                EEDCComposerLayout(progress: !inputFocused && !voiceInputActive && vm.attachments.isEmpty && vm.loadingVideoCount == 0 && vm.editingMessageIndex == nil ? 1 : 0) {
                     inputFieldOrWaveform
                     inputBottomRow
                     // [T-ios-de-voice-toolbar] Measure the row so the
@@ -166,6 +169,7 @@ extension AIChatView {
                     .padding(.horizontal, 12)
                     .padding(.bottom, inputFocused || voiceInputActive ? 10 : 0)
                 }
+                .animation(.spring(response: 0.32, dampingFraction: 0.88), value: inputFocused)
             })
             .contentShape(RoundedRectangle(cornerRadius: 20))
             .onTapGesture { inputFocused = true }

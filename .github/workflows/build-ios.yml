@@ -20,7 +20,7 @@ jobs:
       - name: Install prerequisites
         run: |
           brew install ninja llvm lld libarchive pkg-config meson
-          echo "/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix lld)/bin" >> "$GITHUB_PATH"
           go version
           xcodebuild -version
           xcrun -sdk iphoneos metal --version || xcodebuild -downloadComponent MetalToolchain
@@ -55,5 +55,6 @@ jobs:
           name: xcodebuild-log
           path: ${{ runner.temp }}/xcodebuild.log
           if-no-files-found: ignore
+
 
 

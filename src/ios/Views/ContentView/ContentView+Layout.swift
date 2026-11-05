@@ -139,6 +139,7 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
             let base: CGFloat = sidebar == .history ? historyWidth : (sidebar == .actions ? -actionWidth : 0)
             let offset = min(historyWidth, max(-actionWidth, base + drag))
             let historyProgress = max(0, offset / historyWidth)
+            let outlineProgress = offset >= 0 ? historyProgress : min(1, -offset / actionWidth)
             ZStack {
                 Color(uiColor: .systemBackground).ignoresSafeArea()
                 ZStack {
@@ -160,7 +161,7 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
                     .clipShape(RoundedRectangle(cornerRadius: windowCornerRadius, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: windowCornerRadius, style: .continuous)
-                            .strokeBorder(Color.primary.opacity(offset == 0 ? 0 : 0.16), lineWidth: 0.5)
+                            .strokeBorder(Color.primary.opacity(Double(0.16 * outlineProgress)), lineWidth: 0.75)
                             .allowsHitTesting(false)
                     }
                     .overlay {

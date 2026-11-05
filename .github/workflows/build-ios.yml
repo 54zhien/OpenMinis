@@ -34,6 +34,8 @@ jobs:
       - name: Build native dependencies
         run: |
           ./deps/build_lame.sh
+          curl --fail --location --retry 4 --retry-all-errors --retry-delay 3 https://ffmpeg.org/releases/ffmpeg-6.1.2.tar.xz -o "$RUNNER_TEMP/ffmpeg-6.1.2.tar.xz"
+          tar -xf "$RUNNER_TEMP/ffmpeg-6.1.2.tar.xz" -C deps
           ./deps/build_ffmpeg.sh
           ./deps/build_ish.sh
           ./deps/prepare_alpine_rootfs.sh

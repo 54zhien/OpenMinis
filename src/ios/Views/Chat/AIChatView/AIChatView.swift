@@ -766,7 +766,7 @@ struct AIChatView: View {
             // Full-screen kernel boot overlay
             kernelBootOverlay
         })
-        .background(ChatColors.background)
+        .background(EEDCCardSurfaceBackground())
         .onDrop(of: [.image, .movie, .fileURL, .data], isTargeted: $isDropTargeted) { providers in
             handleDropProviders(providers)
             return true

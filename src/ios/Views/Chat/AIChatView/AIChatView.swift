@@ -797,35 +797,7 @@ struct AIChatView: View {
                 }
         }
         .navigationBarTitleDisplayMode(.inline)
-        // [T-ios-navbar-toolbar-host] The ENTIRE toolbar now lives inside an
-        // equatable-gated host child. Root cause of the mid-streaming "..."
-        // menu refresh (4th attempt, this one from instrumentation): with
-        // .toolbar attached on this (per-token re-evaluated) chain, the
-        // ToolbarContent builder itself re-ran on EVERY streaming tick
-        // (NavbarEval toolbarPass=34/stream) and handed the bridge a brand-new
-        // ToolbarContent value each time — which it re-pushed to the
-        // UINavigationItem, refreshing the OPEN UIMenu, even while both inner
-        // Equatable gates provably held (titleEval=3, menuEval=2). Hosting the
-        // toolbar in a child whose body is gated on the displayed inputs means
-        // the builder simply never re-runs during a stream: no new
-        // ToolbarContent, nothing to re-push, and the native SwiftUI Menu
-        // (with the system's round Liquid-Glass chrome) can stay.
-        // .equatable() is MANDATORY here, not an optimization hint: device
-        // instrumentation (2026-07-17 23:53, == FALSE count 0 while
-        // hostEval == toolbarPass) proved SwiftUI does NOT consult a plain
-        // Equatable conformance for this generic closure-holding view in the
-        // .background position — the gate silently never engaged. EquatableView
-        // wrapping is the only guaranteed path to ==.
-        .background(
-            ChatToolbarHost(key: chatToolbarKey, showsTrailing: false, title: {
-                chatNavPrincipalContent
-            }, trailing: {
-                trailingMenu
-            })
-            .equatable()
-        )
-        // [T-ios-navbar-menu-baritem] Outside the equatable host on purpose:
-        // its update pass is what refreshes the menu's action closures.
+        .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $titlePillEditSession) { session in
             SessionEditSheet(session: session) { newTitle, newCategory in
                 Task {

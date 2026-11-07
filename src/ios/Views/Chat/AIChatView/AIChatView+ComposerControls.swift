@@ -25,20 +25,15 @@ extension AIChatView {
     /// Opens the composer action menu, preserving photo and camera actions.
     @ViewBuilder
     private var attachmentMenuButton: some View {
-        // [T-ios-voiceover-labels] The glyph has an explicit spoken label.
-        let icon = Image(systemName: "plus")
-            .font(.system(size: 19, weight: .medium))
-            .foregroundStyle(.primary)
-            .frame(width: 44, height: 44)
-            .rotationEffect(.degrees(showEEDCComposerMenu && eedcKeyboardMenuPhase != .closed ? 45 : 0))
-            .animation(eedcReduceMotion ? nil : .easeInOut(duration: 0.25), value: showEEDCComposerMenu)
-            .accessibilityLabel(showEEDCComposerMenu ? Text("Close") : Text("More options"))
-
-        Button { [eedcMenuActions] in
-            eedcMenuActions.send(.toggle)
-        } label: {
-            icon
-        }
+        EEDCComposerPlusControl(
+            keyboardMenuExpanded: showEEDCComposerMenu && eedcKeyboardMenuPhase != .closed,
+            floatingMenuPresented: showEEDCComposerMenu && eedcKeyboardMenuPhase == .closed,
+            onTap: { [eedcMenuActions] in
+                EEDCComposerHaptics.playControl()
+                eedcMenuActions.send(.toggle)
+            }
+        )
+        .frame(width: 44, height: 44)
         .confirmationDialog("Add Attachment", isPresented: $showAttachmentMenu) {
             Button("Take Photo") { [eedcMenuActions] in eedcMenuActions.send(.camera) }
             Button("Choose Photos & Videos") { [eedcMenuActions] in eedcMenuActions.send(.photoLibrary) }
@@ -49,10 +44,11 @@ extension AIChatView {
     /// Returns AnyView to keep `inputBar`'s generic type compact; SwiftUI
     /// runtime demangle chokes on deep nested types otherwise.
     var inputBottomRow: AnyView {
+        let showsComposerContextControls = eedcComposerUsesExpandedLayout
         let row = HStack(spacing: 12) {
             attachmentMenuButton
-            if eedcComposerEditing || voiceInputActive || vm.editingMessageIndex != nil || !vm.attachments.isEmpty {
-                slashMenuButton
+            if showsComposerContextControls {
+                slashMenuButton.transition(.opacity)
                 if vm.editingMessageIndex != nil { editExitButton }
             }
             Spacer()
@@ -63,19 +59,19 @@ extension AIChatView {
                 readAloudToolbarToggle
                 Spacer()
             }
-            if eedcComposerEditing || voiceInputActive || vm.editingMessageIndex != nil || !vm.attachments.isEmpty {
-                micButtonContainer
+            if showsComposerContextControls {
+                micButtonContainer.transition(.opacity)
             }
             sendButton
         }
         return AnyView(row)
     }
 
-    /// [T-ios-de-voice-toolbar] Fixed controls in `inputBottomRow`: 44pt plus
-    /// and send controls, 34pt slash and mic controls, plus the four
+    /// [T-ios-de-voice-toolbar] Fixed controls in `inputBottomRow`: four 44pt
+    /// hit targets, plus the four
     /// 12pt HStack gaps between them. Everything left over is what the
     /// read-aloud capsule may use.
-    private static let readAloudRowFixedWidth: CGFloat = 44 * 2 + 34 * 2 + 12 * 4
+    private static let readAloudRowFixedWidth: CGFloat = 44 * 4 + 12 * 4
 
     /// Free width below which the toggle drops its text and becomes icon-only.
     ///
@@ -209,15 +205,14 @@ extension AIChatView {
                 inputFocused = true
             }
         } label: {
-            Text("/")
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
-                .italic()
-                .foregroundStyle(ChatColors.secondaryText)
-                .frame(width: 34, height: 34)
-                .background(ChatColors.inputIconBg)
-                .clipShape(Circle())
-                .overlay(Circle().stroke(ChatColors.inputIconBorder, lineWidth: 0.5))
+            Image(systemName: "command")
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(ChatColors.primaryText)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(EEDCComposerControlButtonStyle())
+        .accessibilityLabel(Text("Commands", comment: "Opens slash commands"))
     }
 
     /// "Exit Edit Mode" capsule shown while editing a past message.
@@ -441,7 +436,7 @@ extension AIChatView {
             // 120pt inside a taller box and the extra space would be dead.
             maxHeightOverride: composerTextHeight
         )
-        return AnyView(composerBody(field: field, topPadding: topPadding))
+        return AnyView(composerBody(field: field))
     }
 
     /// [T-ipad-composer-resize] Wraps the text field with its (optional) fixed
@@ -451,7 +446,7 @@ extension AIChatView {
     /// exclusive: fixedSize asks the view for its intrinsic height, which is
     /// exactly what we're overriding once the user has resized. So the two
     /// modes are separate branches rather than modifiers stacked on one view.
-    private func composerBody(field: PastableTextView, topPadding: CGFloat) -> some View {
+    private func composerBody(field: PastableTextView) -> some View {
         Group {
             if let height = composerTextHeight {
                 field.frame(height: height)
@@ -459,9 +454,9 @@ extension AIChatView {
                 field.fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.horizontal, eedcComposerEditing ? 16 : 0)
-        .padding(.top, eedcComposerEditing ? topPadding : 0)
-        .padding(.bottom, eedcComposerEditing ? 10 : 0)
+        .padding(.horizontal, eedcComposerUsesExpandedLayout ? 12 : 0)
+        .padding(.top, eedcComposerUsesExpandedLayout ? 14 : 0)
+        .padding(.bottom, 0)
         .overlay(alignment: .top) {
             if composerResizeEnabled { composerResizeHandle }
         }
@@ -520,5 +515,115 @@ extension AIChatView {
             ? min(max(UIScreen.main.bounds.height * composerHeightFraction,
                       Self.composerDefaultHeight), composerMaxHeight)
             : Self.composerDefaultHeight
+    }
+}
+
+/// The Composer's plus uses the same plain native UIKit control as Zen. That
+/// preserves UIKit's touch-down feedback while the icon follows the source
+/// glyph through the floating-menu and keyboard-menu states.
+@MainActor
+private struct EEDCComposerPlusControl: UIViewRepresentable {
+    let keyboardMenuExpanded: Bool
+    let floatingMenuPresented: Bool
+    let onTap: () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(onTap: onTap) }
+
+    func makeUIView(context: Context) -> UIButton {
+        let button = UIButton(type: .system)
+        let symbol = UIImage.SymbolConfiguration(pointSize: 19, weight: .medium)
+        button.setImage(UIImage(systemName: "plus", withConfiguration: symbol), for: .normal)
+        button.setPreferredSymbolConfiguration(symbol, forImageIn: .normal)
+        button.tintColor = .label
+        button.backgroundColor = .clear
+        button.adjustsImageWhenHighlighted = true
+        if #available(iOS 26.0, *) { button.cornerConfiguration = .capsule() }
+
+        var style = UIButton.Configuration.plain()
+        style.image = button.image(for: .normal)
+        style.preferredSymbolConfigurationForImage = symbol
+        style.baseForegroundColor = .label
+        style.contentInsets = .zero
+        style.cornerStyle = .capsule
+        button.configuration = style
+        button.accessibilityIdentifier = "eedc-composer-plus"
+        button.accessibilityLabel = "More options"
+        button.addTarget(context.coordinator, action: #selector(Coordinator.pressed), for: .touchUpInside)
+        return button
+    }
+
+    func updateUIView(_ button: UIButton, context: Context) {
+        context.coordinator.onTap = onTap
+        let next: Coordinator.Presentation = floatingMenuPresented ? .floatingMenu
+            : keyboardMenuExpanded ? .keyboardMenu : .resting
+        button.accessibilityLabel = next == .resting ? "More options" : "Close"
+        guard context.coordinator.presentation != next else {
+            context.coordinator.didRender = true
+            return
+        }
+
+        let previous = context.coordinator.presentation
+        context.coordinator.presentation = next
+        let update = {
+            guard let image = button.imageView else { return }
+            switch next {
+            case .resting:
+                image.transform = .identity
+                image.alpha = 1
+            case .keyboardMenu:
+                image.transform = CGAffineTransform(rotationAngle: .pi / 4)
+                image.alpha = 1
+            case .floatingMenu:
+                image.transform = CGAffineTransform(translationX: 22, y: -22)
+                image.alpha = 0
+            }
+        }
+
+        guard context.coordinator.didRender, !UIAccessibility.isReduceMotionEnabled else {
+            UIView.performWithoutAnimation(update)
+            context.coordinator.didRender = true
+            return
+        }
+        if next == .floatingMenu || previous == .floatingMenu {
+            UIView.animate(withDuration: 0.44, delay: 0,
+                           usingSpringWithDamping: 0.72, initialSpringVelocity: 0,
+                           options: [.beginFromCurrentState, .allowUserInteraction],
+                           animations: update)
+        } else {
+            UIView.animate(withDuration: 0.25, delay: 0,
+                           options: [.beginFromCurrentState, .allowUserInteraction, .curveEaseInOut],
+                           animations: update)
+        }
+    }
+
+    final class Coordinator: NSObject {
+        enum Presentation: Equatable { case resting, keyboardMenu, floatingMenu }
+        var onTap: () -> Void
+        var presentation: Presentation = .resting
+        var didRender = false
+
+        init(onTap: @escaping () -> Void) { self.onTap = onTap }
+
+        @objc func pressed() { onTap() }
+    }
+}
+
+@MainActor
+private enum EEDCComposerHaptics {
+    static func playControl() {
+        let feedback = UIImpactFeedbackGenerator(style: .rigid)
+        feedback.impactOccurred(intensity: 1)
+        feedback.prepare()
+    }
+}
+
+private struct EEDCComposerControlButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.94 : 1)
+            .opacity(configuration.isPressed ? 0.72 : 1)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }

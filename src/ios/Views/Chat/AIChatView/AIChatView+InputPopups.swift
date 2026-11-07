@@ -159,11 +159,17 @@ extension AIChatView {
                 eedcKeyboardMenuPhase = .restoreAfterHide
             }
         case .shown:
-            withAnimation(eedcReduceMotion ? nil : .spring(response: 0.44, dampingFraction: 0.72)) {
+            withAnimation(eedcReduceMotion ? nil : .easeIn(duration: 0.23)) {
                 showEEDCComposerMenu = false
                 eedcKeyboardMenuPhase = .restoring
             }
-            inputFocused = true
+            Task { @MainActor in
+                if !eedcReduceMotion {
+                    try? await Task.sleep(for: .milliseconds(230))
+                }
+                guard eedcKeyboardMenuPhase == .restoring else { return }
+                inputFocused = true
+            }
         case .restoreAfterHide, .restoring:
             break
         }
@@ -223,7 +229,10 @@ extension AIChatView {
     }
 
     func dismissEEDCComposerMenu() {
-        withAnimation(eedcReduceMotion ? nil : .spring(response: 0.44, dampingFraction: 0.72)) {
+        let animation: Animation = eedcKeyboardMenuPhase == .closed
+            ? .spring(response: 0.44, dampingFraction: 0.72)
+            : .easeIn(duration: 0.23)
+        withAnimation(eedcReduceMotion ? nil : animation) {
             showEEDCComposerMenu = false
             eedcThinkingDetail = false
             eedcModelDetail = false

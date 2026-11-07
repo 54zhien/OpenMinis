@@ -38,8 +38,9 @@ struct MicButton: View {
     var isVoiceActive: Bool = false
     /// Press feedback for the custom-gesture button.
     @State private var micPressed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private static let diameter: CGFloat = 34
+    private static let diameter: CGFloat = 44
 
     var body: some View {
         // NOT a Button: SwiftUI's Button has a generous system touch-slop / touch-
@@ -51,12 +52,11 @@ struct MicButton: View {
         // glyph is wider than the mic, so render it ~4pt smaller for parity.
         Image(systemName: isVoiceActive ? "keyboard" : "mic")
             .font(.system(size: isVoiceActive ? 15 : 18, weight: .medium))
-            .foregroundStyle(ChatColors.secondaryText)
+            .foregroundStyle(ChatColors.primaryText)
             .frame(width: Self.diameter, height: Self.diameter)
-            .background(ChatColors.inputIconBg)
-            .clipShape(Circle())
-            .overlay(Circle().stroke(ChatColors.inputIconBorder, lineWidth: 0.5))
-            .scaleEffect(micPressed ? 0.9 : 1.0)
+            .scaleEffect(micPressed && !reduceMotion ? 0.94 : 1.0)
+            .opacity(micPressed ? 0.72 : 1)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: micPressed)
             .contentShape(Circle())
             .gesture(
                 DragGesture(minimumDistance: 0)

@@ -22,6 +22,10 @@ check(near(EEDCSidebarGeometry.clampedOffset(-500, start: 1, historyWidth: 300, 
 check(near(EEDCSidebarGeometry.clampedOffset(500, start: -1, historyWidth: 300, actionWidth: 96), 0), "actions cannot cross into history")
 check(EEDCSidebarGeometry.destination(projected: -500, start: 1, historyWidth: 300, actionWidth: 96) == 0, "history swipe closes only")
 check(EEDCSidebarGeometry.destination(projected: 500, start: -1, historyWidth: 300, actionWidth: 96) == 0, "actions swipe closes only")
+check(EEDCSidebarGeometry.destination(projected: 200, start: 0, historyWidth: 300, actionWidth: 96) == 1, "closed state can open history")
+check(EEDCSidebarGeometry.destination(projected: -70, start: 0, historyWidth: 300, actionWidth: 96) == -1, "closed state can open actions")
+check(near(EEDCSidebarGeometry.clampedOffset(120, start: 1, historyWidth: 300, actionWidth: 96), 120), "history follows a partial drag")
+check(near(EEDCSidebarGeometry.clampedOffset(-40, start: -1, historyWidth: 300, actionWidth: 96), -40), "actions follow a partial drag")
 let width: CGFloat = 393
 let history = EEDCSidebarGeometry.historyWidth(for: width)
 let translation = EEDCSidebarGeometry.cardOffset(history, width: width, progress: 1)

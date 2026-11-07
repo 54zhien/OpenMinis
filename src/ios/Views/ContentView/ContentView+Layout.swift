@@ -199,7 +199,11 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
                                 }
                         }
                     }
-                    .shadow(color: .black.opacity(Double(0.14 * outlineProgress)), radius: 10, x: 0, y: 4)
+                    .background {
+                        RoundedRectangle(cornerRadius: windowCornerRadius, style: .continuous)
+                            .fill(Color(uiColor: .systemBackground))
+                            .shadow(color: .black.opacity(Double(0.14 * outlineProgress)), radius: 10, x: 0, y: 4)
+                    }
                     .scaleEffect(EEDCSidebarGeometry.scale(for: historyProgress))
                     // Scaling is around the center; compensate its left inset
                     // so the card edge remains aligned with the revealed rail.

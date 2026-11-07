@@ -307,7 +307,7 @@ extension ContentView {
         // keyboard, so normal avoidance is restored.
         .ignoresSafeArea(.keyboard, edges: showSearchBar ? [] : .bottom)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { if !historyOnly { sidebarToolbarContent } }
+        .toolbar { if !historyOnly || isSelecting { sidebarToolbarContent } }
         )
     }
 

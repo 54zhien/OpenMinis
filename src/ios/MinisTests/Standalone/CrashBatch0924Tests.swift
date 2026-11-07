@@ -106,8 +106,10 @@ let menuPopup = src("Views/Chat/AIChatView/AIChatView+InputPopups.swift")
 let menuButton = src("Views/Chat/AIChatView/AIChatView+ComposerControls.swift")
 check("composer menu relays child actions through a stable channel",
       chat.contains("final class EEDCComposerMenuActionChannel")
+      && chat.contains("@State var eedcMenuActions = EEDCComposerMenuActionChannel()")
       && menuPopup.contains("return Button { [eedcMenuActions] in")
-      && menuButton.contains("Button { [eedcMenuActions] in"))
+      && menuButton.contains("onTap: { [eedcMenuActions] in")
+      && menuButton.contains("eedcMenuActions.send(.toggle)"))
 let wire = slice(chat, from: "func wireComposerActions() {", to: "\n    }\n")
 for call in ["handleReturnKey()", "handleArrowUp()", "handleArrowDown()", "handleTabKey()", "handleCaretChange(caret)"] {
     check("wiring dispatches to \(call)", wire.contains(call))

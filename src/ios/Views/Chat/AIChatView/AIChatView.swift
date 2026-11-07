@@ -1637,7 +1637,7 @@ struct AIChatView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { note in
             guard (note.userInfo?[UIResponder.keyboardIsLocalUserInfoKey] as? NSNumber)?.boolValue != false else { return }
             if eedcKeyboardMenuPhase.afterKeyboardDidHide(isFocused: inputFocused) == .shown {
-                withAnimation(eedcReduceMotion ? nil : .spring(response: 0.44, dampingFraction: 0.72)) {
+                withAnimation(eedcReduceMotion ? nil : .easeOut(duration: 0.28)) {
                     eedcKeyboardMenuPhase = .shown
                 }
             } else if eedcKeyboardMenuPhase.afterKeyboardDidHide(isFocused: inputFocused) == .restoring {
@@ -1653,7 +1653,7 @@ struct AIChatView: View {
         }
         .onChange(of: inputFocused) { focused in
             if focused && eedcKeyboardMenuPhase == .shown {
-                withAnimation(eedcReduceMotion ? nil : .spring(response: 0.44, dampingFraction: 0.72)) {
+                withAnimation(eedcReduceMotion ? nil : .easeIn(duration: 0.23)) {
                     showEEDCComposerMenu = false
                     eedcThinkingDetail = false
                     eedcModelDetail = false

@@ -36,8 +36,8 @@ private struct EEDCComposerLayout: Layout {
         let fieldWidth = max(0, width - 112 * progress)
         let field = subviews[0].sizeThatFits(.init(width: fieldWidth, height: nil))
         let controls = subviews[1].sizeThatFits(.init(width: width, height: nil))
-        let expandedHeight = field.height + controls.height + 5
-        let compactHeight = max(62, field.height, controls.height)
+        let expandedHeight = max(124, field.height + controls.height)
+        let compactHeight = max(62, field.height + 31, controls.height)
         return CGSize(width: width, height: expandedHeight + (compactHeight - expandedHeight) * progress)
     }
 
@@ -46,7 +46,7 @@ private struct EEDCComposerLayout: Layout {
         let fieldSize = subviews[0].sizeThatFits(.init(width: fieldWidth, height: nil))
         let controlsSize = subviews[1].sizeThatFits(.init(width: bounds.width, height: nil))
         let fieldY = bounds.minY + (bounds.height - fieldSize.height) / 2 * progress
-        let expandedControlsY = bounds.minY + fieldSize.height + 5
+        let expandedControlsY = bounds.maxY - controlsSize.height
         let compactControlsY = bounds.midY - controlsSize.height / 2
         subviews[0].place(at: CGPoint(x: bounds.minX + 56 * progress, y: fieldY),
                           proposal: .init(width: fieldWidth, height: fieldSize.height))
@@ -56,6 +56,33 @@ private struct EEDCComposerLayout: Layout {
 }
 
 extension AIChatView {
+    /// The Composer has one resting capsule and one expanded input surface.
+    /// Keep every condition that changes its rail height in this single
+    /// predicate so the geometry, hit targets and glass corner track together.
+    var eedcComposerUsesExpandedLayout: Bool {
+        eedcComposerEditing || voiceInputActive || vm.editingMessageIndex != nil
+            || !vm.attachments.isEmpty || vm.loadingVideoCount > 0
+    }
+
+    var eedcComposerRestingHeight: CGFloat {
+        let lineHeight = UIFont.systemFont(
+            ofSize: FontSettings.shared.scaledChatInput(17)
+        ).lineHeight
+        return max(62, lineHeight + 32)
+    }
+
+    /// The resting Composer follows the window's lower corner centers, as in
+    /// Zen's `ComposerGeometry`. Small windows without a usable corner radius
+    /// use the same 24pt fallback inset as that layout.
+    var eedcComposerRestingHorizontalInset: CGFloat {
+        let inset = eedcWindowCornerRadius - eedcComposerRestingHeight / 2
+        let windowWidth = inputBarWindowBounds().width
+        let contentWidth = min(windowWidth, maxContentWidth ?? windowWidth)
+        let canAlignWithWindow = inset >= 0
+            && contentWidth - 2 * inset >= 2 * 44 + 2 * 12 + 44
+        return canAlignWithWindow ? inset : 24
+    }
+
     // MARK: - Input keyboard handlers (extracted to avoid inflating the
     // generic type of `inputBar` past what Swift can demangle at runtime).
 
@@ -127,6 +154,7 @@ extension AIChatView {
     }
 
     var inputBar: some View {
+        let composerExpanded = eedcComposerUsesExpandedLayout
         VStack(spacing: 0) {
             if vm.isSuspended {
                 HStack(spacing: 8) {
@@ -165,7 +193,7 @@ extension AIChatView {
                     .padding(.top, 8)
                 }
 
-                EEDCComposerLayout(progress: !eedcComposerEditing && !voiceInputActive && vm.attachments.isEmpty && vm.loadingVideoCount == 0 && vm.editingMessageIndex == nil ? 1 : 0) {
+                EEDCComposerLayout(progress: composerExpanded ? 0 : 1) {
                     inputFieldOrWaveform
                     inputBottomRow
                     // [T-ios-de-voice-toolbar] Measure the row so the
@@ -183,12 +211,11 @@ extension AIChatView {
                     // Padding applied AFTER the observer, so the measured
                     // width is the row's own usable space and needs no
                     // constant subtracted back out of it.
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, eedcComposerEditing || voiceInputActive ? 10 : 0)
+                    .padding(.horizontal, composerExpanded ? 4 : 9)
+                    .padding(.vertical, composerExpanded ? 4 : 0)
                 }
-                .animation(eedcReduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.88), value: eedcComposerEditing)
             })
-            .contentShape(RoundedRectangle(cornerRadius: 20))
+            .contentShape(RoundedRectangle(cornerRadius: composerExpanded ? 26 : eedcComposerRestingHeight / 2, style: .continuous))
             .onTapGesture { inputFocused = true }
             .onReceive(speechManager.$recognizedText) { text in
                 guard speechManager.state == .recording || !text.isEmpty else { return }
@@ -221,18 +248,20 @@ extension AIChatView {
                     .padding(.trailing, 10)
                 }
             }
-            .modifier(ComposerSurface(compact: !eedcComposerEditing && !voiceInputActive && vm.attachments.isEmpty && vm.loadingVideoCount == 0 && vm.editingMessageIndex == nil))
+            .modifier(ComposerSurface(compact: !composerExpanded))
             // [T-ios-context-usage-hint] Inner glow along the glass wall.
             // An overlay ABOVE the material (so the Liquid Glass backdrop
             // sampler never sees it) that clips itself to the same shape, so
             // it cannot spill past the outline (see ComposerContextGlow).
             .overlay {
-                ComposerContextGlow(tier: vm.contextUsage?.tier ?? .normal, compact: !eedcComposerEditing && !voiceInputActive && vm.attachments.isEmpty && vm.loadingVideoCount == 0 && vm.editingMessageIndex == nil)
+                ComposerContextGlow(tier: vm.contextUsage?.tier ?? .normal)
+                    .environment(\.eedcComposerIsCompact, !composerExpanded)
             }
-            .animation(eedcReduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.88), value: eedcComposerEditing)
             .frame(maxWidth: maxContentWidth)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, composerExpanded ? 16 : eedcComposerRestingHorizontalInset)
+            .padding(.top, 8)
+            .padding(.bottom, composerExpanded ? 12 : 6)
+            .animation(eedcReduceMotion ? nil : .easeInOut(duration: 0.25), value: composerExpanded)
             // [T-ios-geometry-observer-crash] onGeometryChange replaces the
             // GeometryReader scaffold (async-renderer SIGTRAP — see the
             // floating-bar site). Fires with the initial value too, so the

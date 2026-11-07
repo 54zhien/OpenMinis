@@ -163,7 +163,7 @@ struct ChatSendButton: View {
                     Image(systemName: "stop.fill")
                         .font(.system(size: 21, weight: .medium))
                         .frame(width: 44, height: 44)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(ChatColors.primaryText)
                 }
                 // Hosted here rather than on the chat root: this button owns the
                 // decision, and the existing "Task Running" alert up there belongs

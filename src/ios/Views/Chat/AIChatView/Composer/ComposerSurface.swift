@@ -23,6 +23,17 @@ import UIKit
 import UniformTypeIdentifiers
 import WebKit
 
+private struct EEDCComposerCompactEnvironmentKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var eedcComposerIsCompact: Bool {
+        get { self[EEDCComposerCompactEnvironmentKey.self] }
+        set { self[EEDCComposerCompactEnvironmentKey.self] = newValue }
+    }
+}
+
 // MARK: - Composer Surface
 
 /// Circular surface for the small floating buttons over the message list
@@ -101,7 +112,12 @@ struct FloatingCircleButtonSurface: ViewModifier {
 struct ComposerSurface: ViewModifier {
     var compact = false
     private var shape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: compact ? 31 : 20, style: .continuous)
+        RoundedRectangle(cornerRadius: compact ? Self.restingCornerRadius : 26, style: .continuous)
+    }
+
+    private static var restingCornerRadius: CGFloat {
+        let lineHeight = UIFont.systemFont(ofSize: FontSettings.shared.scaledChatInput(17)).lineHeight
+        return max(62, lineHeight + 32) / 2
     }
 
     func body(content: Content) -> some View {
@@ -147,7 +163,7 @@ struct ComposerSurface: ViewModifier {
 /// never sees it.
 struct ComposerContextGlow: View {
     let tier: ContextUsage.Tier
-    var compact = false
+    @Environment(\.eedcComposerIsCompact) private var compact
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var breathing = false
@@ -155,7 +171,11 @@ struct ComposerContextGlow: View {
     /// Must match ComposerSurface's shape exactly: it is the stroke path and
     /// the clip that keeps the glow inside the wall.
     private var shape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: compact ? 31 : 20, style: .continuous)
+        RoundedRectangle(cornerRadius: compact ? Self.restingCornerRadius : 26, style: .continuous)
+    }
+    private static var restingCornerRadius: CGFloat {
+        let lineHeight = UIFont.systemFont(ofSize: FontSettings.shared.scaledChatInput(17)).lineHeight
+        return max(62, lineHeight + 32) / 2
     }
     private var color: Color {
         tier == .critical ? Color(UIColor.systemRed) : Color(UIColor.systemOrange)

@@ -94,13 +94,6 @@ extension AIChatView {
             // window before its messages load. Returning users with any
             // prior chat skip the tip even on a fresh draft (so it's a
             // genuine first-launch hint).
-            if vm.sessionId == nil
-                && vm.messages.isEmpty
-                && !vm.isLoadingSession
-                && (totalSessionCount ?? Int.max) == 0 {
-                EmptyChatDirectoryTimeline(onBrowse: { showFileBrowser = true })
-                    .padding(.horizontal, 24)
-            }
         }
         .overlay(alignment: .bottom) {
             // Open the overlay only when at least one button will actually

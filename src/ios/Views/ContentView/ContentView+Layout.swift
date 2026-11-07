@@ -25,7 +25,19 @@ enum EEDCSidebarGeometry {
     }
 
     static func scale(for progress: CGFloat) -> CGFloat {
-        1 - 0.15 * progress
+        1 - 0.05 * progress
+    }
+
+    static func clampedOffset(_ value: CGFloat, start: Int, historyWidth: CGFloat, actionWidth: CGFloat) -> CGFloat {
+        min(start == -1 ? 0 : historyWidth, max(start == 1 ? 0 : -actionWidth, value))
+    }
+
+    static func destination(projected: CGFloat, start: Int, historyWidth: CGFloat, actionWidth: CGFloat) -> Int {
+        if start == 1 { return projected > historyWidth * 0.45 ? 1 : 0 }
+        if start == -1 { return projected < -actionWidth * 0.45 ? -1 : 0 }
+        if projected > historyWidth * 0.45 { return 1 }
+        if projected < -actionWidth * 0.45 { return -1 }
+        return 0
     }
 
     static func cardOffset(_ offset: CGFloat, width: CGFloat, progress: CGFloat) -> CGFloat {
@@ -59,6 +71,15 @@ private struct EEDCRailGlass: ViewModifier {
             if capsule { content.background(.ultraThinMaterial, in: Capsule()) }
             else { content.background(.ultraThinMaterial, in: Circle()) }
         }
+    }
+}
+
+private struct EEDCTerminalIcon: View {
+    @Environment(\.legibilityWeight) private var legibilityWeight
+    var body: some View {
+        Image(systemName: "apple.terminal")
+            .font(.system(size: 25, weight: legibilityWeight == .bold ? .bold : .regular))
+            .frame(width: 56, height: 56)
     }
 }
 
@@ -137,7 +158,8 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
             let historyWidth = EEDCSidebarGeometry.historyWidth(for: geometry.size.width)
             let actionWidth = EEDCSidebarGeometry.actionWidth
             let base: CGFloat = sidebar == .history ? historyWidth : (sidebar == .actions ? -actionWidth : 0)
-            let offset = min(historyWidth, max(-actionWidth, base + drag))
+            let start = sidebar == .history ? 1 : (sidebar == .actions ? -1 : 0)
+            let offset = EEDCSidebarGeometry.clampedOffset(base + drag, start: start, historyWidth: historyWidth, actionWidth: actionWidth)
             let historyProgress = max(0, offset / historyWidth)
             let outlineProgress = offset >= 0 ? historyProgress : min(1, -offset / actionWidth)
             ZStack {
@@ -161,6 +183,11 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
                     .clipShape(RoundedRectangle(cornerRadius: windowCornerRadius, style: .continuous))
                     .overlay {
                         RoundedRectangle(cornerRadius: windowCornerRadius, style: .continuous)
+                            .fill(Color.white.opacity(Double(0.08 * outlineProgress)))
+                            .allowsHitTesting(false)
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: windowCornerRadius, style: .continuous)
                             .strokeBorder(Color.primary.opacity(Double(0.16 * outlineProgress)), lineWidth: 0.75)
                             .allowsHitTesting(false)
                     }
@@ -172,6 +199,7 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
                                 }
                         }
                     }
+                    .shadow(color: .black.opacity(Double(0.14 * outlineProgress)), radius: 10, x: 0, y: 4)
                     .scaleEffect(EEDCSidebarGeometry.scale(for: historyProgress))
                     // Scaling is around the center; compensate its left inset
                     // so the card edge remains aligned with the revealed rail.
@@ -207,9 +235,11 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
                 guard drag != 0 else { return }
                 let base: CGFloat = sidebar == .history ? historyWidth : (sidebar == .actions ? -actionWidth : 0)
                 let projected = base + value.predictedEndTranslation.width
+                let start = sidebar == .history ? 1 : (sidebar == .actions ? -1 : 0)
+                let destination = EEDCSidebarGeometry.destination(projected: projected, start: start, historyWidth: historyWidth, actionWidth: actionWidth)
                 withAnimation(eedcReduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86)) {
-                    if projected > historyWidth * 0.45 { sidebar = .history }
-                    else if projected < -actionWidth * 0.45 { sidebar = .actions }
+                    if destination == 1 { sidebar = .history }
+                    else if destination == -1 { sidebar = .actions }
                     else { sidebar = .closed }
                     drag = 0
                 }
@@ -222,13 +252,13 @@ extension ContentView {
     // Keep the existing navigation tree mounted while exposing the two rails.
     func eedcLayout<Content: View>(content: Content) -> some View {
         EEDCSidebarContainer(sidebar: $eedcSidebar, content: content,
-                             history: NavigationStack { sessionList(useNavigationLinks: true) }) { insets, radius in
+                             history: NavigationStack { sessionList(useNavigationLinks: true, historyOnly: true) }) { insets, radius in
             eedcActions(topInset: insets.top, bottomInset: insets.bottom, windowRadius: radius)
         }
     }
     private func eedcActions(topInset: CGFloat, bottomInset: CGFloat, windowRadius: CGFloat) -> some View {
         let alignsWithCorner = windowRadius >= 36
-        let bottom = alignsWithCorner ? windowRadius - 28 : bottomInset + 16
+        let bottom = alignsWithCorner ? windowRadius - 28 - bottomInset : 16
         let settingsShift: CGFloat = alignsWithCorner ? -(windowRadius - 28 - 20) : 0
         return VStack {
             VStack(spacing: 0) {
@@ -241,8 +271,7 @@ extension ContentView {
                     withAnimation(eedcReduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86)) { eedcSidebar = .closed }
                     showTerminal = true
                 } label: {
-                    Image("TerminalCircle").renderingMode(.template).resizable().scaledToFit()
-                        .frame(width: 25, height: 25).frame(width: 56, height: 56)
+                    EEDCTerminalIcon()
                 }.accessibilityLabel("终端")
             }
             .modifier(EEDCRailGlass(capsule: true))
@@ -252,7 +281,7 @@ extension ContentView {
                 .offset(x: settingsShift)
         }
         .foregroundStyle(.primary)
-        .padding(.top, max(windowRadius - 28, topInset + 12))
+        .padding(.top, max(0, max(windowRadius - 28, topInset + 12) - topInset))
         .padding(.bottom, bottom)
     }
 
@@ -294,7 +323,7 @@ extension ContentView {
 
     var stackLayout: some View {
         NavigationStack(path: $navigationPath) {
-            sessionList(useNavigationLinks: true)
+            AIChatView()
                 .navigationDestination(for: String.self) { id in
                     // `.id(id)` mirrors detailView (iPad): navigationDestination
                     // views are identified by stack depth, not path value, so
@@ -364,17 +393,7 @@ extension ContentView {
                     draftLog.info("🔑DRAFT detailView DISAPPEAR id=\(id)")
                 }
         } else {
-            VStack(spacing: 12) {
-                Image(systemName: "bubble.left.and.bubble.right")
-                    .font(.system(size: 48))
-                    .foregroundStyle(.secondary)
-                Text("No Conversation Selected")
-                    .font(.title3.bold())
-                Text("Select a conversation or start a new one")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            AIChatView()
         }
     }
 }

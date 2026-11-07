@@ -17,7 +17,11 @@ func check(_ condition: @autoclosure () -> Bool, _ name: String) {
 func near(_ a: CGFloat, _ b: CGFloat) -> Bool { abs(a - b) < 0.001 }
 check(near(EEDCSidebarGeometry.actionWidth, 96), "right rail matches Zen width")
 check(near(EEDCSidebarGeometry.scale(for: 0), 1), "closed card is full size")
-check(near(EEDCSidebarGeometry.scale(for: 1), 0.85), "open history scales card to 85 percent")
+check(near(EEDCSidebarGeometry.scale(for: 1), 0.95), "open history scales card to 95 percent")
+check(near(EEDCSidebarGeometry.clampedOffset(-500, start: 1, historyWidth: 300, actionWidth: 96), 0), "history cannot cross into actions")
+check(near(EEDCSidebarGeometry.clampedOffset(500, start: -1, historyWidth: 300, actionWidth: 96), 0), "actions cannot cross into history")
+check(EEDCSidebarGeometry.destination(projected: -500, start: 1, historyWidth: 300, actionWidth: 96) == 0, "history swipe closes only")
+check(EEDCSidebarGeometry.destination(projected: 500, start: -1, historyWidth: 300, actionWidth: 96) == 0, "actions swipe closes only")
 let width: CGFloat = 393
 let history = EEDCSidebarGeometry.historyWidth(for: width)
 let translation = EEDCSidebarGeometry.cardOffset(history, width: width, progress: 1)

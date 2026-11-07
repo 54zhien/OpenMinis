@@ -112,6 +112,7 @@ struct MinisApp: App {
     /// Tracks when the app entered background for duration logging.
     @State private var backgroundEntryDate: Date?
     @State private var showLocalStorageNotice = false
+    @AppStorage("eedc.localStorageNoticeAcknowledged") private var localStorageNoticeAcknowledged = false
 
     init() {
         // [T-ios-mac-uncaught-nsexception] FIRST statement in the process's own
@@ -238,11 +239,11 @@ struct MinisApp: App {
                 AppLockOverlay()
             }
                 .alert("正在使用应用内存储", isPresented: $showLocalStorageNotice) {
-                    Button("知道了", role: .cancel) { }
+                    Button("知道了", role: .cancel) { localStorageNoticeAcknowledged = true }
                 } message: {
                     Text("eEDC 曾无法访问 App Group，已改用应用内存储并继续沿用，避免切换签名后看不到数据。文件 App 共享和分享扩展不可用；原共享容器中的数据不会自动迁移。")
                 }
-                .onAppear { if !EEDCStorage.isShared { showLocalStorageNotice = true } }
+                .onAppear { if !EEDCStorage.isShared && !localStorageNoticeAcknowledged { showLocalStorageNotice = true } }
                 .onReceive(SessionLockStore.shared.$appIsLocked) { locked in
                     guard !locked, let url = pendingURLWhileLocked else { return }
                     pendingURLWhileLocked = nil

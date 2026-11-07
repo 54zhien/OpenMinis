@@ -15,10 +15,10 @@ extension ContentView {
     // MARK: - Session List
 
     @ViewBuilder
-    func sessionList(useNavigationLinks: Bool) -> some View {
+    func sessionList(useNavigationLinks: Bool, historyOnly: Bool = false) -> some View {
         Group {
             if useNavigationLinks {
-                stackList
+                stackList(historyOnly: historyOnly)
             } else {
                 splitList
             }
@@ -196,9 +196,9 @@ extension ContentView {
         )
     }
 
-    private var stackList: some View {
+    private func stackList(historyOnly: Bool) -> some View {
         ScrollViewReader { scrollProxy in
-        stackListBody(scrollProxy: scrollProxy)
+        stackListBody(scrollProxy: scrollProxy, historyOnly: historyOnly)
     }
     }
 
@@ -206,7 +206,7 @@ extension ContentView {
     /// (`safeAreaInset` → `ignoresSafeArea` → `navigationBarTitleDisplayMode` →
     /// `toolbar`) is instantiated separately from the list's own generic tree
     /// rather than wrapping it.
-    private func stackListBody(scrollProxy: ScrollViewProxy) -> AnyView {
+    private func stackListBody(scrollProxy: ScrollViewProxy, historyOnly: Bool) -> AnyView {
         AnyView(
         List {
             // [T-ios-session-list-equatable-jank] id-list projection — see splitList.
@@ -285,11 +285,18 @@ extension ContentView {
         .modifier(ScrollPhaseProbe())
         #endif
         .opacity(didInitialLoad ? 1 : 0)
-        .overlay { if didInitialLoad, filteredSessions.isEmpty, !isSearching { emptyState } }
+        .overlay {
+            if didInitialLoad, filteredSessions.isEmpty, !isSearching {
+                if historyOnly { Text("暂无对话").foregroundStyle(.secondary) }
+                else { emptyState }
+            }
+        }
         .overlay(alignment: .top) { folderMiniBarOverlay(scrollProxy) }
         .safeAreaInset(edge: .bottom) {
             if isSelecting { selectionToolbar }
-            else if !hidesFABForOnboarding(listIsEmpty: filteredSessions.isEmpty) { fabRow }
+            else if historyOnly {
+                if showSearchBar { eedcHistorySearch }
+            } else if !hidesFABForOnboarding(listIsEmpty: filteredSessions.isEmpty) { fabRow }
         }
         // [T-home-fab-keyboard-inset] Mirror of the voice panel's structural
         // immunity (604a9947 / T-voice-bg-fg-gap): with the inline search bar
@@ -300,8 +307,24 @@ extension ContentView {
         // keyboard, so normal avoidance is restored.
         .ignoresSafeArea(.keyboard, edges: showSearchBar ? [] : .bottom)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { sidebarToolbarContent }
+        .toolbar { if !historyOnly { sidebarToolbarContent } }
         )
+    }
+
+    private var eedcHistorySearch: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField("Search chats...", text: $searchText)
+                .focused($searchFocused)
+                .autocorrectionDisabled()
+                .onChange(of: searchText) { _ in scheduleSearch() }
+            Button { dismissSearch() } label: {
+                Image(systemName: "xmark").frame(width: 44, height: 44).contentShape(Rectangle())
+            }.accessibilityLabel(Text("Close"))
+        }
+        .padding(.leading, 16).padding(.trailing, 4)
+        .background(.ultraThinMaterial, in: Capsule())
+        .padding(.horizontal, 12).padding(.bottom, 12)
     }
 
     /// Selection-bound List for split (iPad) layout.

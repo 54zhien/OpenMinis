@@ -91,49 +91,41 @@ extension EnvironmentValues {
     }
 }
 
-final class EEDCSidebarSurfaceState: ObservableObject {
-    @Published private(set) var progress: CGFloat = 0
-
-    func update(progress value: CGFloat) {
-        let next = min(1, max(0, value))
-        guard abs(progress - next) > 0.001 else { return }
-        progress = next
-    }
-}
-
-private struct EEDCSidebarSurfaceStateKey: EnvironmentKey {
-    static let defaultValue: EEDCSidebarSurfaceState? = nil
+private struct EEDCSidebarSurfaceProgressKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 0
 }
 
 extension EnvironmentValues {
-    var eedcSidebarSurfaceState: EEDCSidebarSurfaceState? {
-        get { self[EEDCSidebarSurfaceStateKey.self] }
-        set { self[EEDCSidebarSurfaceStateKey.self] = newValue }
+    var eedcSidebarSurfaceProgress: CGFloat {
+        get { self[EEDCSidebarSurfaceProgressKey.self] }
+        set { self[EEDCSidebarSurfaceProgressKey.self] = newValue }
     }
 }
 
 struct EEDCCardSurfaceBackground: View {
-    @Environment(\.eedcSidebarSurfaceState) private var surfaceState
-
-    var body: some View {
-        if let surfaceState {
-            EEDCCardSurfaceColor(surfaceState: surfaceState)
-        } else {
-            ChatColors.background
-        }
-    }
-}
-
-private struct EEDCCardSurfaceColor: View {
-    @ObservedObject var surfaceState: EEDCSidebarSurfaceState
+    @Environment(\.eedcSidebarSurfaceProgress) private var progress
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        Color(uiColor: resolvedSurface)
+        Color.clear
+            .modifier(EEDCSurfaceColorModifier(progress: progress, dark: colorScheme == .dark))
+    }
+}
+
+private struct EEDCSurfaceColorModifier: ViewModifier, Animatable {
+    var progress: CGFloat
+    let dark: Bool
+
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        content.background(Color(uiColor: resolvedSurface))
     }
 
     private var resolvedSurface: UIColor {
-        let dark = colorScheme == .dark
         let traits = UITraitCollection(userInterfaceStyle: dark ? .dark : .light)
         let base = ChatColors.backgroundUIColor(for: traits).resolvedColor(with: traits)
         var red: CGFloat = 0
@@ -142,9 +134,9 @@ private struct EEDCCardSurfaceColor: View {
         var alpha: CGFloat = 1
         guard base.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else { return base }
         return UIColor(
-            red: EEDCSidebarGeometry.surfaceComponent(base: red, progress: surfaceState.progress, dark: dark),
-            green: EEDCSidebarGeometry.surfaceComponent(base: green, progress: surfaceState.progress, dark: dark),
-            blue: EEDCSidebarGeometry.surfaceComponent(base: blue, progress: surfaceState.progress, dark: dark),
+            red: EEDCSidebarGeometry.surfaceComponent(base: red, progress: progress, dark: dark),
+            green: EEDCSidebarGeometry.surfaceComponent(base: green, progress: progress, dark: dark),
+            blue: EEDCSidebarGeometry.surfaceComponent(base: blue, progress: progress, dark: dark),
             alpha: alpha
         )
     }
@@ -252,8 +244,6 @@ private struct EEDCWindowCornerProbe: UIViewRepresentable {
 private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>: View {
     @Binding var sidebar: EEDCSidebar
     @State private var drag: CGFloat = 0
-    // Keep stable identity; only the background leaf observes reveal progress.
-    @State private var surfaceState = EEDCSidebarSurfaceState()
     @State private var windowCornerRadius: CGFloat = 36
     @State private var windowMetrics = EEDCWindowMetrics()
     @Environment(\.accessibilityReduceMotion) private var eedcReduceMotion
@@ -300,7 +290,7 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
                 }
                 content
                     .environment(\.eedcWindowCornerRadius, windowCornerRadius)
-                    .environment(\.eedcSidebarSurfaceState, surfaceState)
+                    .environment(\.eedcSidebarSurfaceProgress, outlineProgress)
                     .frame(width: geometry.size.width, height: cardHeight)
                     .background(ChatColors.background)
                     .clipShape(RoundedRectangle(cornerRadius: windowCornerRadius, style: .continuous))
@@ -327,8 +317,6 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
                     // so the card edge remains aligned with the revealed rail.
                     .offset(x: EEDCSidebarGeometry.cardOffset(offset, width: geometry.size.width, progress: historyProgress), y: cardVerticalOffset)
             }
-            .onAppear { surfaceState.update(progress: outlineProgress) }
-            .onChange(of: outlineProgress) { surfaceState.update(progress: $0) }
             .coordinateSpace(name: "eedc-sidebar-container")
             .simultaneousGesture(sidebarGesture(width: geometry.size.width, historyWidth: historyWidth, actionWidth: actionWidth))
             .background(EEDCWindowCornerProbe(radius: $windowCornerRadius, metrics: $windowMetrics))

@@ -155,7 +155,7 @@ extension AIChatView {
 
     var inputBar: some View {
         let composerExpanded = eedcComposerUsesExpandedLayout
-        VStack(spacing: 0) {
+        return VStack(spacing: 0) {
             if vm.isSuspended {
                 HStack(spacing: 8) {
                     ProgressView()

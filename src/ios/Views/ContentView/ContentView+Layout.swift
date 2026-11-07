@@ -43,6 +43,18 @@ enum EEDCSidebarGeometry {
     static func cardOffset(_ offset: CGFloat, width: CGFloat, progress: CGFloat) -> CGFloat {
         offset - width * (1 - scale(for: progress)) / 2
     }
+
+    static func settingsBottom(radius: CGFloat, bottomInset: CGFloat) -> CGFloat {
+        radius >= 36 ? radius - 28 - bottomInset : 16
+    }
+
+    static func settingsShift(radius: CGFloat) -> CGFloat {
+        radius >= 36 ? 48 - radius : 0
+    }
+
+    static func railTop(radius: CGFloat, topInset: CGFloat) -> CGFloat {
+        max(0, max(radius - 28, topInset + 12) - topInset)
+    }
 }
 
 private struct EEDCWindowCornerRadiusKey: EnvironmentKey {
@@ -261,9 +273,8 @@ extension ContentView {
         }
     }
     private func eedcActions(topInset: CGFloat, bottomInset: CGFloat, windowRadius: CGFloat) -> some View {
-        let alignsWithCorner = windowRadius >= 36
-        let bottom = alignsWithCorner ? windowRadius - 28 - bottomInset : 16
-        let settingsShift: CGFloat = alignsWithCorner ? -(windowRadius - 28 - 20) : 0
+        let bottom = EEDCSidebarGeometry.settingsBottom(radius: windowRadius, bottomInset: bottomInset)
+        let settingsShift = EEDCSidebarGeometry.settingsShift(radius: windowRadius)
         return VStack {
             VStack(spacing: 0) {
                 eedcAction("新会话", symbol: "message") { handleNewChatRequest() }
@@ -285,7 +296,7 @@ extension ContentView {
                 .offset(x: settingsShift)
         }
         .foregroundStyle(.primary)
-        .padding(.top, max(0, max(windowRadius - 28, topInset + 12) - topInset))
+        .padding(.top, EEDCSidebarGeometry.railTop(radius: windowRadius, topInset: topInset))
         .padding(.bottom, bottom)
     }
 

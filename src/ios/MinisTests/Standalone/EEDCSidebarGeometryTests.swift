@@ -6,6 +6,23 @@ let path = iosRoot.appendingPathComponent("Views/ContentView/ContentView+Layout.
 let source = try String(contentsOf: path, encoding: .utf8)
 let chatSource = try String(contentsOf: iosRoot.appendingPathComponent("Views/Chat/AIChatView/AIChatView.swift"), encoding: .utf8)
 let colorSource = try String(contentsOf: iosRoot.appendingPathComponent("Views/Chat/AIChatView/Support/ChatColors.swift"), encoding: .utf8)
+
+func checkSource(_ condition: Bool, _ name: String) {
+    guard condition else { fatalError(name) }
+}
+
+checkSource(!source.contains(".fill(Color.white.opacity(Double(0.08 * outlineProgress)))"), "card tint does not cover chat contents")
+checkSource(chatSource.contains(".background(EEDCCardSurfaceBackground())"), "chat surface tint stays in its background leaf")
+checkSource(colorSource.contains("UIColor(white: 0.055, alpha: 1)"), "dark global surface is lighter than pure black")
+checkSource(source.contains(".environment(\\.legibilityWeight, .regular)"), "terminal symbol keeps regular weight with bold text enabled")
+checkSource(source.contains("cardVerticalOffset"), "card extends through the window safe areas")
+checkSource(source.contains(".frame(width: geometry.size.width, height: cardHeight)"), "card geometry includes both window safe-area gaps")
+checkSource(source.contains(".offset(x: EEDCSidebarGeometry.cardOffset") && source.contains("y: cardVerticalOffset"), "card geometry applies the measured vertical origin")
+checkSource(source.contains("private struct EEDCSurfaceColorModifier: ViewModifier, Animatable") && source.contains("var animatableData: CGFloat"), "surface color interpolates with the sidebar spring")
+checkSource(source.contains(".environment(\\.eedcSidebarSurfaceProgress, outlineProgress)"), "drag progress is isolated to the surface leaf")
+checkSource(chatSource.contains(".safeAreaInset(edge: .bottom, spacing: 0)") && !source.contains("ignoresSafeArea(.keyboard"), "sidebar frame keeps keyboard avoidance active")
+print("Sidebar source checks passed")
+
 guard let start = source.range(of: "enum EEDCSidebarGeometry {"),
       let end = source.range(of: "\n\nprivate struct EEDCWindowCornerRadiusKey", range: start.lowerBound..<source.endIndex) else {
     fatalError("Sidebar geometry is missing")
@@ -53,16 +70,6 @@ check(near(EEDCSidebarGeometry.settingsBottom(radius: 55, bottomInset: 34) + 34 
 check(near(48 - EEDCSidebarGeometry.settingsShift(radius: 55), 55), "settings horizontal center shares display corner center")
 check(near(EEDCSidebarGeometry.railTop(radius: 55, safeTop: 59, originTop: 59) + 59, 71), "top controls do not count the safe area twice")
 check(near(EEDCSidebarGeometry.railTop(radius: 55, safeTop: 59, originTop: 0), 71), "full-window layout respects the top safe area")
-check(!source.contains(".fill(Color.white.opacity(Double(0.08 * outlineProgress)))"), "card tint does not cover chat contents")
-check(chatSource.contains(".background(EEDCCardSurfaceBackground())"), "chat surface tint stays in its background leaf")
-check(colorSource.contains("UIColor(white: 0.055, alpha: 1)"), "dark global surface is lighter than pure black")
-check(source.contains(".environment(\\.legibilityWeight, .regular)"), "terminal symbol keeps regular weight with bold text enabled")
-check(source.contains("cardVerticalOffset"), "card extends through the window safe areas")
-check(source.contains(".frame(width: geometry.size.width, height: cardHeight)"), "card geometry includes both window safe-area gaps")
-check(source.contains(".offset(x: EEDCSidebarGeometry.cardOffset") && source.contains("y: cardVerticalOffset"), "card geometry applies the measured vertical origin")
-check(source.contains("private struct EEDCSurfaceColorModifier: ViewModifier, Animatable") && source.contains("var animatableData: CGFloat"), "surface color interpolates with the sidebar spring")
-check(source.contains(".environment(\\.eedcSidebarSurfaceProgress, outlineProgress)"), "drag progress is isolated to the surface leaf")
-check(chatSource.contains(".safeAreaInset(edge: .bottom, spacing: 0)") && !source.contains("ignoresSafeArea(.keyboard"), "sidebar frame keeps keyboard avoidance active")
 print("Sidebar geometry checks passed")
 """
 let file = FileManager.default.temporaryDirectory.appendingPathComponent("eedc-sidebar-\(UUID().uuidString).swift")

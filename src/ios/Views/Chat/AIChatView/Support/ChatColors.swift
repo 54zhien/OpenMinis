@@ -22,7 +22,16 @@ import WebKit
 // MARK: - Color Palette (clean light theme)
 
 enum ChatColors {
-    static let background = Color(UIColor.systemBackground)
+    static let background = Color(UIColor { traits in
+        backgroundUIColor(for: traits)
+    })
+
+    static func backgroundUIColor(for traits: UITraitCollection) -> UIColor {
+        if traits.userInterfaceStyle == .dark {
+            return UIColor(white: 0.055, alpha: 1)
+        }
+        return UIColor.systemBackground.resolvedColor(with: traits)
+    }
     static let secondaryBg = Color(UIColor.secondarySystemBackground)
     static let inputIconBg = Color(UIColor.secondarySystemBackground)
     static let inputIconBorder = Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(white: 0.35, alpha: 1) : UIColor(white: 0, alpha: 0) })

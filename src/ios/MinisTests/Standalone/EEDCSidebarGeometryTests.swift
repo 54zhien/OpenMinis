@@ -34,7 +34,8 @@ check(near(translation + scaledLeftInset, history), "scaled card edge aligns wit
 check(near(EEDCSidebarGeometry.cardOffset(-96, width: width, progress: 0), -96), "right rail translates without scaling")
 check(near(EEDCSidebarGeometry.settingsBottom(radius: 55, bottomInset: 34) + 34 + 28, 55), "settings center shares display corner center")
 check(near(48 - EEDCSidebarGeometry.settingsShift(radius: 55), 55), "settings horizontal center shares display corner center")
-check(near(EEDCSidebarGeometry.railTop(radius: 55, topInset: 59) + 59, 71), "top controls do not count the safe area twice")
+check(near(EEDCSidebarGeometry.railTop(radius: 55, safeTop: 59, originTop: 59) + 59, 71), "top controls do not count the safe area twice")
+check(near(EEDCSidebarGeometry.railTop(radius: 55, safeTop: 59, originTop: 0), 71), "full-window layout respects the top safe area")
 print("Sidebar geometry checks passed")
 """
 let file = FileManager.default.temporaryDirectory.appendingPathComponent("eedc-sidebar-\(UUID().uuidString).swift")

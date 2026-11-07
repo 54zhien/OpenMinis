@@ -52,8 +52,8 @@ enum EEDCSidebarGeometry {
         radius >= 36 ? 48 - radius : 0
     }
 
-    static func railTop(radius: CGFloat, topInset: CGFloat) -> CGFloat {
-        max(0, max(radius - 28, topInset + 12) - topInset)
+    static func railTop(radius: CGFloat, safeTop: CGFloat, originTop: CGFloat) -> CGFloat {
+        max(0, max(radius - 28, safeTop + 12) - originTop)
     }
 }
 
@@ -95,8 +95,14 @@ private struct EEDCTerminalIcon: View {
     }
 }
 
+private struct EEDCWindowMetrics: Equatable {
+    var height: CGFloat = 0
+    var safeTop: CGFloat = 0
+}
+
 private struct EEDCWindowCornerProbe: UIViewRepresentable {
     @Binding var radius: CGFloat
+    @Binding var metrics: EEDCWindowMetrics
 
     func makeUIView(context: Context) -> Probe {
         let view = Probe()
@@ -107,6 +113,11 @@ private struct EEDCWindowCornerProbe: UIViewRepresentable {
                 if abs(radius - value) > 0.5 { radius = value }
             }
         }
+        view.onMetrics = { value in
+            DispatchQueue.main.async {
+                if metrics != value { metrics = value }
+            }
+        }
         return view
     }
 
@@ -114,8 +125,10 @@ private struct EEDCWindowCornerProbe: UIViewRepresentable {
 
     final class Probe: UIView {
         var onRadius: ((CGFloat) -> Void)?
+        var onMetrics: ((EEDCWindowMetrics) -> Void)?
         private weak var measuredWindow: UIWindow?
         private var measuredBounds: CGRect?
+        private var measuredSafeInsets: UIEdgeInsets?
 
         override func didMoveToWindow() {
             super.didMoveToWindow()
@@ -127,10 +140,17 @@ private struct EEDCWindowCornerProbe: UIViewRepresentable {
             resolveRadius()
         }
 
+        override func safeAreaInsetsDidChange() {
+            super.safeAreaInsetsDidChange()
+            resolveRadius()
+        }
+
         func resolveRadius() {
-            guard let window, measuredWindow !== window || measuredBounds != window.bounds else { return }
+            guard let window, measuredWindow !== window || measuredBounds != window.bounds || measuredSafeInsets != window.safeAreaInsets else { return }
             measuredWindow = window
             measuredBounds = window.bounds
+            measuredSafeInsets = window.safeAreaInsets
+            onMetrics?(EEDCWindowMetrics(height: window.bounds.height, safeTop: window.safeAreaInsets.top))
             if #available(iOS 26.0, *) {
                 let reference = UIView(frame: window.bounds)
                 reference.backgroundColor = .clear
@@ -152,13 +172,14 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
     @Binding var sidebar: EEDCSidebar
     @State private var drag: CGFloat = 0
     @State private var windowCornerRadius: CGFloat = 36
+    @State private var windowMetrics = EEDCWindowMetrics()
     @Environment(\.accessibilityReduceMotion) private var eedcReduceMotion
     let content: Content
     let history: History
-    let actions: (EdgeInsets, CGFloat) -> Actions
+    let actions: (CGFloat, CGFloat, CGFloat, CGFloat) -> Actions
 
     init(sidebar: Binding<EEDCSidebar>, content: Content, history: History,
-         @ViewBuilder actions: @escaping (EdgeInsets, CGFloat) -> Actions) {
+         @ViewBuilder actions: @escaping (CGFloat, CGFloat, CGFloat, CGFloat) -> Actions) {
         self._sidebar = sidebar
         self.content = content
         self.history = history
@@ -174,6 +195,9 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
             let offset = EEDCSidebarGeometry.clampedOffset(base + drag, start: start, historyWidth: historyWidth, actionWidth: actionWidth)
             let historyProgress = max(0, offset / historyWidth)
             let outlineProgress = offset >= 0 ? historyProgress : min(1, -offset / actionWidth)
+            let frame = geometry.frame(in: .global)
+            let safeTop = windowMetrics.height > 0 ? windowMetrics.safeTop : max(geometry.safeAreaInsets.top, frame.minY)
+            let bottomGap = windowMetrics.height > 0 ? max(0, windowMetrics.height - frame.maxY) : geometry.safeAreaInsets.bottom
             ZStack {
                 Color(uiColor: .systemBackground).ignoresSafeArea()
                 ZStack {
@@ -182,7 +206,7 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .opacity(historyProgress > 0 ? 1 : 0)
                         .allowsHitTesting(sidebar == .history && drag == 0)
-                    actions(geometry.safeAreaInsets, windowCornerRadius)
+                    actions(safeTop, frame.minY, bottomGap, windowCornerRadius)
                         .frame(width: actionWidth)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .opacity(offset < 0 ? Double(0.25 + 0.75 * min(1, -offset / actionWidth)) : 0)
@@ -224,7 +248,7 @@ private struct EEDCSidebarContainer<Content: View, History: View, Actions: View>
             .clipped()
             .coordinateSpace(name: "eedc-sidebar-container")
             .simultaneousGesture(sidebarGesture(width: geometry.size.width, historyWidth: historyWidth, actionWidth: actionWidth))
-            .background(EEDCWindowCornerProbe(radius: $windowCornerRadius))
+            .background(EEDCWindowCornerProbe(radius: $windowCornerRadius, metrics: $windowMetrics))
         }
     }
 
@@ -268,12 +292,12 @@ extension ContentView {
     // Keep the existing navigation tree mounted while exposing the two rails.
     func eedcLayout<Content: View>(content: Content) -> some View {
         EEDCSidebarContainer(sidebar: $eedcSidebar, content: content,
-                             history: NavigationStack { sessionList(useNavigationLinks: true, historyOnly: true) }) { insets, radius in
-            eedcActions(topInset: insets.top, bottomInset: insets.bottom, windowRadius: radius)
+                             history: NavigationStack { sessionList(useNavigationLinks: true, historyOnly: true) }) { safeTop, originTop, bottomGap, radius in
+            eedcActions(safeTop: safeTop, originTop: originTop, bottomGap: bottomGap, windowRadius: radius)
         }
     }
-    private func eedcActions(topInset: CGFloat, bottomInset: CGFloat, windowRadius: CGFloat) -> some View {
-        let bottom = EEDCSidebarGeometry.settingsBottom(radius: windowRadius, bottomInset: bottomInset)
+    private func eedcActions(safeTop: CGFloat, originTop: CGFloat, bottomGap: CGFloat, windowRadius: CGFloat) -> some View {
+        let bottom = EEDCSidebarGeometry.settingsBottom(radius: windowRadius, bottomInset: bottomGap)
         let settingsShift = EEDCSidebarGeometry.settingsShift(radius: windowRadius)
         return VStack {
             VStack(spacing: 0) {
@@ -296,7 +320,7 @@ extension ContentView {
                 .offset(x: settingsShift)
         }
         .foregroundStyle(.primary)
-        .padding(.top, EEDCSidebarGeometry.railTop(radius: windowRadius, topInset: topInset))
+        .padding(.top, EEDCSidebarGeometry.railTop(radius: windowRadius, safeTop: safeTop, originTop: originTop))
         .padding(.bottom, bottom)
     }
 
